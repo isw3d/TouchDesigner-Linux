@@ -126,7 +126,7 @@ Then:
 
 ### Desktop shortcut
 
-Inside Bottles, click the **⋮** (three dots) next to TouchDesigner and select **Add Desktop Shortcut**.
+Inside Bottles, click the **⋮** (three dots) next to TouchDesigner and select **Add Desktop Entry**.
 
 ### File association & icon
 
@@ -135,6 +135,12 @@ Inside Bottles, click the **⋮** (three dots) next to TouchDesigner and select 
 
 The icon is located at:
 
+**Flatpak:**
+```
+/home/{YOUR_USER}/.var/app/com.usebottles.bottles/data/bottles/bottles/Touchdesigner/icons/TouchDesigner.png
+```
+
+**AUR:**
 ```
 /home/{YOUR_USER}/.local/share/bottles/bottles/Touchdesigner/icons/TouchDesigner.png
 ```
