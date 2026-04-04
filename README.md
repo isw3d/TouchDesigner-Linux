@@ -23,6 +23,7 @@ AUR (Arch Linux)
 ```bash
 yay -S bottles
 ```
+
 Setup TouchDesigner Bottle
 Open Bottles
 Create a new bottle
@@ -40,19 +41,13 @@ Install Dependencies
 
 Inside the bottle:
 
-Go to Dependencies and install:
-
+Go to Dependencies
+Install the following:
 allfonts
 d3dx11 (latest version)
 Install TouchDesigner
-
-Download the Windows version:
-
-👉 https://derivative.ca/download
-
-Then:
-
-Click Run Executable
+Download the Windows version from Derivative
+In Bottles, click Run Executable
 Select the .exe
 Install normally (like Windows)
 Launch TouchDesigner
@@ -66,16 +61,18 @@ Fix: Missing Fonts
 Some UI elements may appear blank.
 
 Solution:
-Add wine_ui_fixes.tox to your project (thanks to c0deous : https://derivative.ca/community-post/asset/minor-ui-fixes-touchdesigner-wine/73421)
+Add wine_ui_fixes.tox
+ to your project (thanks to c0deous: link
+)
 Click Fix Now
 
-Fonts will display correctly as long as the .tox is in the project.
+Fonts will display correctly as long as the .tox is in your project.
 
 Optional: Flatpak Filesystem Access
 
 If using Flatpak, you may not be able to open .toe files from your system.
 
-You can fix this using Flatseal:
+Fix this using Flatseal:
 
 flatpak install flathub com.github.tchx84.Flatseal
 
