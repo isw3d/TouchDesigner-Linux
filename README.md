@@ -150,10 +150,10 @@ If the association is correctly configured, `.toe` files will display with the T
 ### 4. Launch TouchDesigner
 ![Launch TouchDesigner](Screenshots/4.png)
 
-### 5. Font fix
+### 5. Font missing
 ![Font fix](Screenshots/5.png)
 
-### 6. Flatseal (optional)
+### 6. Font fix
 ![Flatseal optional setup](Screenshots/6.png)
 
 ---
