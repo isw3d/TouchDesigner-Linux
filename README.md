@@ -137,12 +137,12 @@ The icon is located at:
 
 **Flatpak:**
 ```
-/home/{YOUR_USER}/.var/app/com.usebottles.bottles/data/bottles/bottles/Touchdesigner/icons/TouchDesigner.png
+/home/{YOUR_USER}/.var/app/com.usebottles.bottles/data/bottles/bottles/TouchDesigner/icons/TouchDesigner.png
 ```
 
 **AUR:**
 ```
-/home/{YOUR_USER}/.local/share/bottles/bottles/Touchdesigner/icons/TouchDesigner.png
+/home/{YOUR_USER}/.local/share/bottles/bottles/TouchDesigner/icons/TouchDesigner.png
 ```
 
 ### `.toe` icon association example
