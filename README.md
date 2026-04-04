@@ -16,11 +16,13 @@ You can install Bottles using either Flatpak or AUR.
 
 ```bash
 flatpak install flathub com.usebottles.bottles
-
+```
 Restart your session if the app does not appear.
 
 AUR (Arch Linux)
+```bash
 yay -S bottles
+```
 Setup TouchDesigner Bottle
 Open Bottles
 Create a new bottle
@@ -64,7 +66,7 @@ Fix: Missing Fonts
 Some UI elements may appear blank.
 
 Solution:
-Add wine_ui_fixes.tox to your project
+Add wine_ui_fixes.tox to your project (thanks to c0deous : https://derivative.ca/community-post/asset/minor-ui-fixes-touchdesigner-wine/73421)
 Click Fix Now
 
 Fonts will display correctly as long as the .tox is in the project.
