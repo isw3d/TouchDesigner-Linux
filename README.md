@@ -90,7 +90,9 @@ Some UI elements may appear blank due to font rendering issues.
 
 ### Solution
 
-1. Add `wine_ui_fixes.tox` to your project (thanks to c0deous; add link here).
+1. Add `wine_ui_fixes.tox` to your project.
+	- [Download `wine_ui_fixes.tox` directly](./wine_ui_fixes.tox?raw=1)
+	- Original post: [c0deous on Derivative](https://derivative.ca/community-post/asset/minor-ui-fixes-touchdesigner-wine/73421)
 2. Click **Fix Now**.
 
 Fonts will display correctly as long as the `.tox` file is present in the project.
