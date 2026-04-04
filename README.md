@@ -14,7 +14,8 @@ This guide gives a complete, working setup.
 - [6. Fix Missing Fonts](#6-fix-missing-fonts)
 - [7. Optional: Flatpak Filesystem Access](#7-optional-flatpak-filesystem-access)
 - [8. Optional: Desktop Integration](#8-optional-desktop-integration)
-- [9. Notes](#9-notes)
+- [9. Screenshots](#9-screenshots)
+- [10. Notes](#10-notes)
 
 ---
 
@@ -129,7 +130,29 @@ Then:
 
 ---
 
-## 9. Notes
+## 9. Screenshots
+
+### 1. Bottle setup
+![Bottle setup](Screenshots/1.png)
+
+### 2. Dependencies
+![Dependencies](Screenshots/2.png)
+
+### 3. Run executable
+![Run executable](Screenshots/3.png)
+
+### 4. Launch TouchDesigner
+![Launch TouchDesigner](Screenshots/4.png)
+
+### 5. Font fix
+![Font fix](Screenshots/5.png)
+
+### 6. Flatseal (optional)
+![Flatseal optional setup](Screenshots/6.png)
+
+---
+
+## 10. Notes
 
 - NVIDIA GPUs are recommended.
 - X11 works better than Wayland.
