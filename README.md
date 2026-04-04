@@ -124,9 +124,16 @@ Then:
 
 ## 8. Optional: Desktop Integration
 
-- Create a desktop shortcut.
-- Assign a TouchDesigner icon (`.png`).
+- Create a desktop shortcut by clicking on the 3 dots next to TouchDesigner inside the bottle, then select "Add Desktop Entry" and press Enter key.
 - Associate `.toe` files with TouchDesigner.
+- Assign a TouchDesigner icon to .toe extension files (`.png`) :
+
+via Flatpak : 
+
+via AUR : /home/{YOUR_USER}/.local/share/bottles/bottles/TouchDesigner/icons/TouchDesigner.png
+
+- Command-line argument to run .toe directly from your Linux file explorer :
+run -b Touchdesigner -e 'C:\Program Files\Derivative\TouchDesigner\bin\TouchDesigner.exe' --args %f
 
 ---
 
