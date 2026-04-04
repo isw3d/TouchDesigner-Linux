@@ -1,97 +1,136 @@
-## Why this exists
+# TouchDesigner on Linux (via Bottles)
 
-TouchDesigner is not officially supported on Linux.
+TouchDesigner is not officially supported on Linux, but it can run very well through Bottles.
 
-However, it is actually possible to run it with very good results using Bottles.
+This guide gives a complete, working setup.
 
-This guide provides a complete working setup.
+## Table of Contents
+
+- [1. Install Bottles](#1-install-bottles)
+- [2. Create the TouchDesigner Bottle](#2-create-the-touchdesigner-bottle)
+- [3. Install Dependencies](#3-install-dependencies)
+- [4. Install TouchDesigner](#4-install-touchdesigner)
+- [5. Launch TouchDesigner](#5-launch-touchdesigner)
+- [6. Fix Missing Fonts](#6-fix-missing-fonts)
+- [7. Optional: Flatpak Filesystem Access](#7-optional-flatpak-filesystem-access)
+- [8. Optional: Desktop Integration](#8-optional-desktop-integration)
+- [9. Notes](#9-notes)
 
 ---
 
-## Install Bottles
+## 1. Install Bottles
 
-You can install Bottles using either Flatpak or AUR.
+Install Bottles using one of the methods below.
 
-### Flatpak (recommended)
+### Flatpak (recommended on Fedora, Mint, and similar distros)
 
 ```bash
 flatpak install flathub com.usebottles.bottles
 ```
-Restart your session if the app does not appear.
 
-AUR (Arch Linux)
+If Bottles does not appear in your app menu, restart your session.
+
+### AUR (Arch-based distros)
+
 ```bash
 yay -S bottles
 ```
 
-Setup TouchDesigner Bottle
-Open Bottles
-Create a new bottle
+---
 
-Use the following settings:
+## 2. Create the TouchDesigner Bottle
 
-Name: TouchDesigner
-Environment: Gaming
-Runner: soda
-Directory: Default
+1. Open Bottles.
+2. Create a new bottle.
+3. Use these settings:
 
-Create the bottle and wait for setup to finish.
+| Setting | Value |
+| --- | --- |
+| Name | TouchDesigner |
+| Environment | Gaming |
+| Runner | soda |
+| Directory | Default |
 
-Install Dependencies
+4. Create the bottle and wait for setup to finish.
+
+---
+
+## 3. Install Dependencies
 
 Inside the bottle:
 
-Go to Dependencies
-Install the following:
-allfonts
-d3dx11 (latest version)
-Install TouchDesigner
-Download the Windows version from Derivative
-In Bottles, click Run Executable
-Select the .exe
-Install normally (like Windows)
-Launch TouchDesigner
-Go to Programs
-Click Play on TouchDesigner
+1. Go to **Dependencies**.
+2. Install:
+	- `allfonts`
+	- `d3dx11` (latest version)
 
-It should now run.
+---
 
-Fix: Missing Fonts
+## 4. Install TouchDesigner
 
-Some UI elements may appear blank.
+1. Download the Windows installer from Derivative.
+2. In Bottles, click **Run Executable**.
+3. Select the `.exe` file.
+4. Install normally (same process as Windows).
 
-Solution:
-Add wine_ui_fixes.tox
- to your project (thanks to c0deous: link
-)
-Click Fix Now
+---
 
-Fonts will display correctly as long as the .tox is in your project.
+## 5. Launch TouchDesigner
 
-Optional: Flatpak Filesystem Access
+1. Open **Programs** in Bottles.
+2. Click **Play** on TouchDesigner.
 
-If using Flatpak, you may not be able to open .toe files from your system.
+TouchDesigner should now run.
 
-Fix this using Flatseal:
+---
 
+## 6. Fix Missing Fonts
+
+Some UI elements may appear blank due to font rendering issues.
+
+### Solution
+
+1. Add `wine_ui_fixes.tox` to your project (thanks to c0deous; add link here).
+2. Click **Fix Now**.
+
+Fonts will display correctly as long as the `.tox` file is present in the project.
+
+---
+
+## 7. Optional: Flatpak Filesystem Access
+
+If you installed Bottles via Flatpak, opening `.toe` files directly from your system may fail.
+
+Install Flatseal:
+
+```bash
 flatpak install flathub com.github.tchx84.Flatseal
+```
 
 Then:
 
-Open Flatseal
-Select Bottles
-Go to Filesystem
-Enable All system files
+1. Open Flatseal.
+2. Select **Bottles**.
+3. Go to **Filesystem**.
+4. Enable **All system files**.
 
-⚠️ This disables sandboxing.
+> [!WARNING]
+> This disables sandboxing protections for Bottles.
 
-Optional: Desktop Integration
-Create a desktop shortcut
-Assign TouchDesigner icon (.png)
-Associate .toe files
-Notes
-NVIDIA GPUs recommended
-X11 works better than Wayland
-Performance may vary
+---
+
+## 8. Optional: Desktop Integration
+
+- Create a desktop shortcut.
+- Assign a TouchDesigner icon (`.png`).
+- Associate `.toe` files with TouchDesigner.
+
+---
+
+## 9. Notes
+
+- NVIDIA GPUs are recommended.
+- X11 works better than Wayland.
+- Performance may vary depending on hardware and driver setup.
 
 Built with care.
