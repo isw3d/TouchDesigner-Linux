@@ -124,15 +124,26 @@ Then:
 
 ## 8. Optional: Desktop Integration
 
-- Create a desktop shortcut.
-- Assign a TouchDesigner icon (`.png`).
-- Associate `.toe` files with TouchDesigner.
+### Desktop shortcut
+
+Inside Bottles, click the **⋮** (three dots) next to TouchDesigner and select **Add Desktop Shortcut**.
+
+### File association & icon
+
+1. Associate `.toe` files with TouchDesigner.
+2. Assign the TouchDesigner icon (`.png`) to the file type.
+
+The icon is located at:
+
+```
+/home/{YOUR_USER}/.local/share/bottles/bottles/Touchdesigner/icons/TouchDesigner.png
+```
 
 ### `.toe` icon association example
 
-If the association is correctly configured, `.toe` files will display with the TouchDesigner icon.
+If the association is correctly configured, `.toe` files will display with the TouchDesigner icon in Dolphin.
 
-![Example of `.toe` file with TouchDesigner icon](Screenshots/7.png)
+![Example of `.toe` file with TouchDesigner icon in Dolphin](Screenshots/7.png)
 
 ---
 
