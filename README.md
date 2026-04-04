@@ -1,6 +1,6 @@
 # TouchDesigner on Linux (via Bottles)
 
-TouchDesigner is not officially supported on Linux, but it can run very well through Bottles.
+TouchDesigner is not officially supported on Linux, but it can run very well through Bottles (on Wayland).
 
 This guide gives a complete, working setup.
 
@@ -160,8 +160,9 @@ If the association is correctly configured, `.toe` files will display with the T
 
 ## 10. Notes
 
-- NVIDIA GPUs are recommended.
-- X11 works better than Wayland.
+- NVIDIA GPUs are highly recommended.
+- Wayland works way better than X11.
 - Performance may vary depending on hardware and driver setup.
 
 Built with care.
+Iswad
