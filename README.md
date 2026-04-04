@@ -128,11 +128,11 @@ Then:
 - Assign a TouchDesigner icon (`.png`).
 - Associate `.toe` files with TouchDesigner.
 
-### `.toe` icon association example (Dolphin)
+### `.toe` icon association example
 
-If the association is correctly configured, `.toe` files will display with the TouchDesigner icon in Dolphin.
+If the association is correctly configured, `.toe` files will display with the TouchDesigner icon.
 
-![Example of `.toe` file with TouchDesigner icon in Dolphin](Screenshots/7.png)
+![Example of `.toe` file with TouchDesigner icon](Screenshots/7.png)
 
 ---
 
