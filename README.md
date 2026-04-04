@@ -1,6 +1,6 @@
 # TouchDesigner on Linux (via Bottles)
 
-TouchDesigner is not officially supported on Linux, but it can run very well through Bottles (on Wayland).
+TouchDesigner is not officially supported on Linux, but it can run very well through Bottles.
 
 This guide gives a complete, working setup.
 
@@ -124,16 +124,15 @@ Then:
 
 ## 8. Optional: Desktop Integration
 
-- Create a desktop shortcut by clicking on the 3 dots next to TouchDesigner inside the bottle, then select "Add Desktop Entry" and press Enter key.
+- Create a desktop shortcut.
+- Assign a TouchDesigner icon (`.png`).
 - Associate `.toe` files with TouchDesigner.
-- Assign a TouchDesigner icon to .toe extension files (`.png`) :
 
-via Flatpak : 
+### `.toe` icon association example (Dolphin)
 
-via AUR : /home/{YOUR_USER}/.local/share/bottles/bottles/TouchDesigner/icons/TouchDesigner.png
+If the association is correctly configured, `.toe` files will display with the TouchDesigner icon in Dolphin.
 
-- Command-line argument to run .toe directly from your Linux file explorer :
-run -b Touchdesigner -e 'C:\Program Files\Derivative\TouchDesigner\bin\TouchDesigner.exe' --args %f
+![Example of `.toe` file with TouchDesigner icon in Dolphin](Screenshots/7.png)
 
 ---
 
@@ -151,19 +150,18 @@ run -b Touchdesigner -e 'C:\Program Files\Derivative\TouchDesigner\bin\TouchDesi
 ### 4. Launch TouchDesigner
 ![Launch TouchDesigner](Screenshots/4.png)
 
-### 5. Fonts missing
+### 5. Font fix
 ![Font fix](Screenshots/5.png)
 
-### 6. Font fix
+### 6. Flatseal (optional)
 ![Flatseal optional setup](Screenshots/6.png)
 
 ---
 
 ## 10. Notes
 
-- NVIDIA GPUs are highly recommended.
-- Wayland works way better than X11.
+- NVIDIA GPUs are recommended.
+- X11 works better than Wayland.
 - Performance may vary depending on hardware and driver setup.
 
 Built with care.
-Iswad
