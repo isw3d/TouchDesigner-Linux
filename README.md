@@ -182,7 +182,7 @@ If the association is correctly configured, `.toe` files will display with the T
 - NVIDIA GPUs are highly recommended.
 - Wayland works way better than X11.
 - Performance may vary depending on hardware and driver setup.
-- Overall, my experience was smoother than on Windows, with better performance (up to +20%) and a much cooler-running machine (up to -25°C) due to Linux optimizations.
+- Overall, my experience was smoother than on Windows, with better performance (up to +20%) and a much cooler-running machine (up to -20°C) due to Linux optimizations.
 
 Built with care.
 
