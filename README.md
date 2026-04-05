@@ -1,6 +1,6 @@
 # TouchDesigner on Linux (via Bottles)
 
-(Screenshots/0.png)
+![Screenshot](Screenshots/0.png)
 
 TouchDesigner is not officially supported on Linux, but it can run very well through Bottles (on Wayland).
 
