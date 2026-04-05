@@ -128,7 +128,7 @@ Then:
 
 ### Desktop shortcut
 
-Inside Bottles, click the **⋮** (three dots) next to TouchDesigner and select **Add Desktop Entry**.
+Inside Bottles, click the **⋮** next to TouchDesigner and select **Add Desktop Entry**.
 
 ### File association & icon
 
