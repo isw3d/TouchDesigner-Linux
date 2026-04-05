@@ -1,5 +1,7 @@
 # TouchDesigner on Linux (via Bottles)
 
+(Screenshots/0.png)
+
 TouchDesigner is not officially supported on Linux, but it can run very well through Bottles (on Wayland).
 
 This guide gives a complete, working setup.
