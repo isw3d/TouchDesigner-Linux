@@ -191,7 +191,7 @@ In this setup, TouchDesigner is fully usable and all core features tested so far
 | NDI | ✅ Working | Confirmed working |
 | NVIDIA TOP | ✅ Working | Confirmed working |
 | Features known to fail | ⚠️ None found | No reproducible broken feature in current tests |
-| External installs / integrations | ❓ Not fully tested | Third-party installs, extra plugins, and advanced external production pipelines still need broader testing |
+| External installs / integrations | ❓ Not fully tested | Third-party installs, Kinect, extra plugins, and advanced external production pipelines still need broader testing |
 
 > ✅ This setup is stable enough for real-world usage based on current tests.
 ---
