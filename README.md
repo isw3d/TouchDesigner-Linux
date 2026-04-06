@@ -17,7 +17,8 @@ This guide gives a complete, working setup.
 - [7. Optional: Flatpak Filesystem Access](#7-optional-flatpak-filesystem-access)
 - [8. Optional: Desktop Integration](#8-optional-desktop-integration)
 - [9. Screenshots](#9-screenshots)
-- [10. Notes](#10-notes)
+- [10. Compatibility Status](#10-compatibility-status)
+- [11. Notes](#11-notes)
 
 ---
 
@@ -177,14 +178,21 @@ If the association is correctly configured, `.toe` files will display with the T
 
 ---
 
-## 10. Features confirmed working
+## 10. Compatibility Status
 
-I will be updating this list as testing progresses.
+In this setup, TouchDesigner is fully usable and all core features tested so far are working.
 
-- NDI
-- UI rendering (with fix)
-- Real-time visuals
-- External outputs and inputs
+| Area | Status | Notes |
+| --- | --- | --- |
+| Installation via Bottles | ✅ Working | Stable setup with `Gaming` environment + `soda` runner |
+| Launch and runtime | ✅ Working | App launches normally and runs reliably |
+| UI rendering | ✅ Working | Correct with `wine_ui_fixes.tox` |
+| Real-time visuals | ✅ Working | Live updates and interaction are smooth |
+| Inputs / outputs | ✅ Working | External outputs and inputs are functional in tested scenarios |
+| NDI | ✅ Working | Confirmed working |
+| NVIDIA TOP | ✅ Working | Confirmed working |
+| Features known to fail | ⚠️ None found | No reproducible broken feature in current tests |
+| External installs / integrations | ❓ Not fully tested | Third-party installs, extra plugins, and advanced external production pipelines still need broader testing |
 
 ---
 
