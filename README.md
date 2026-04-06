@@ -199,7 +199,7 @@ In this setup, TouchDesigner is fully usable and all core features tested so far
 ## 11. Notes
 
 - NVIDIA GPUs are highly recommended.
-- Wayland works way better than X11.
+- Wayland is strongly recommended (X11 may cause launch issues or black screen)
 - Performance may vary depending on hardware and driver setup.
 - Overall, my experience was smoother than on Windows, with better performance (up to +20%) and a much cooler-running machine (up to -20°C) due to Linux optimizations.
 
