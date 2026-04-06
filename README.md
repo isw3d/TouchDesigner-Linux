@@ -184,7 +184,6 @@ In this setup, TouchDesigner is fully usable and all core features tested so far
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Installation via Bottles | ✅ Working | Stable setup with `Gaming` environment + `soda` runner |
 | Launch and runtime | ✅ Working | App launches normally and runs reliably |
 | UI rendering | ✅ Working | Correct with `wine_ui_fixes.tox` |
 | Real-time visuals | ✅ Working | Live updates and interaction are smooth |
