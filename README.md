@@ -164,16 +164,15 @@ If the association is correctly configured, `.toe` files will display with the T
 ### 2. Dependencies
 ![Dependencies](Screenshots/2.png)
 
-### 3. Run executable
 ![Run executable](Screenshots/3.png)
 
-### 4. Launch TouchDesigner
+### 3. Launch TouchDesigner
 ![Launch TouchDesigner](Screenshots/4.png)
 
-### 5. Font missing
+### 4. Font missing
 ![Font fix](Screenshots/5.png)
 
-### 6. Font fix
+### 5. Font fix
 ![Flatseal optional setup](Screenshots/6.png)
 
 ---
