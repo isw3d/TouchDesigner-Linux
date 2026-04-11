@@ -190,7 +190,6 @@ Exec=flatpak run --command=bottles-cli 'com.usebottles.bottles' run -p TouchDesi
 
 ## 10. Compatibility Status
 
-In this setup, TouchDesigner is fully usable and all core features tested so far are working.
 
 | Area | Status | Notes |
 | --- | --- | --- |
