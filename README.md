@@ -158,7 +158,13 @@ If the association is correctly configured, `.toe` files will display with the T
 
 ![Example of `.toe` file with TouchDesigner icon](Screenshots/7.png)
 
----
+If double-clicking a `.toe` file fails to load the project (path error), you need to update your desktop entry.
+Locate your `.desktop` file for TouchDesigner (usually in ~/.local/share/applications/) and update the `Exec` line by adding `z:%u`:
+
+```bash
+Exec=flatpak run --command=bottles-cli 'com.usebottles.bottles' run -p TouchDesigner -b TouchDesigner -- "z:%u"
+```
+> 💡 Fix discovered by @chrsmlls333
 
 ## 9. Screenshots
 
@@ -192,11 +198,10 @@ In this setup, TouchDesigner is fully usable and all core features tested so far
 | Real-time visuals | ✅ Working | Live updates and interaction are smooth |
 | Inputs / outputs | ✅ Working | External outputs and inputs are functional in tested scenarios |
 | NDI | ✅ Working | Confirmed working |
-| NVIDIA TOP | ✅ Working | Confirmed working |
-| Features known to fail | ⚠️ None found | No reproducible broken feature in current tests |
+| TD - Bitwig | ✅ Working | Confirmed working |
+| Video Device In | ⚠️ Partial | USB Webcams work on first init, but Wine "locks" the device. Replug or TD restart required to reset |
+| NVIDIA TOP | ❌ Not working | Background, Flow and Denoise fail to init CUDA/TensorRT in this environment |
 | External installs / integrations | ❓ Not fully tested | Third-party installs, Kinect, extra plugins, and advanced external production pipelines still need broader testing |
-
-> ✅ This setup is stable enough for real-world usage based on current tests.
 ---
 
 ## 11. Notes
