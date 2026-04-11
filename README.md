@@ -159,6 +159,7 @@ If the association is correctly configured, `.toe` files will display with the T
 ![Example of `.toe` file with TouchDesigner icon](Screenshots/7.png)
 
 If double-clicking a `.toe` file fails to load the project (path error), you need to update your desktop entry.
+
 Locate your `.desktop` file for TouchDesigner (usually in ~/.local/share/applications/) and update the `Exec` line by adding `z:%u`:
 
 ```bash
