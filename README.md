@@ -163,7 +163,7 @@ If double-clicking a `.toe` file fails to load the project (path error), you nee
 Locate your `.desktop` file for TouchDesigner (usually in ~/.local/share/applications/) and update the `Exec` line by adding `z:%u`:
 
 ```bash
-Exec=flatpak run --command=bottles-cli 'com.usebottles.bottles' run -p TouchDesigner -b TouchDesigner -- "z:%u"
+run --command=bottles-cli 'com.usebottles.bottles' run -p TouchDesigner -b TouchDesigner -- "z:%u"
 ```
 > 💡 Fix discovered by @chrsmlls333
 
