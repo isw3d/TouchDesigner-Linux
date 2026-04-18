@@ -2,10 +2,6 @@
 
 ![Screenshot](Screenshots/0.png)
 
-> 🚀 **New project: full automation incoming**
->
-> I’m building a polished script to install TouchDesigner across Flatpak environments, making the setup fast, reliable and effortless.
-
 TouchDesigner is not officially supported on Linux, but it can run very well through Bottles **(Wayland)**.
 
 This guide gives a complete, working setup.
