@@ -2,6 +2,12 @@
 
 ![Screenshot](Screenshots/0.png)
 
+
+> 🚀 **New project: semi-automation incoming**
+>
+> I’m building a script with a config file to make the setup easier across Flatpak environments.
+
+
 TouchDesigner is not officially supported on Linux, but it can run very well through Bottles **(Wayland)**.
 
 This guide gives a complete, working setup.
