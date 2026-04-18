@@ -164,6 +164,11 @@ If the association is correctly configured, `.toe` files will display with the T
 
 If double-clicking a `.toe` file fails to load the project (path error), you need to update your desktop entry.
 
+> [!IMPORTANT]
+> Before running scripts or terminal commands, verify what they do first.
+> Check them yourself or ask an AI assistant to explain them.
+> Avoid running commands you do not understand or trust.
+
 Run the commands below (copy/paste) to create the launcher script:
 
 ```bash
