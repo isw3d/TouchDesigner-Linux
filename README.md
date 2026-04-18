@@ -38,7 +38,11 @@ flatpak install flathub com.usebottles.bottles
 
 If Bottles does not appear in your app menu, restart your session.
 
-### AUR (Arch-based distros)
+### AUR (Arch-based distros, not recommended)
+
+> [!WARNING]
+> The Bottles package on AUR is not an official distribution and currently shows many bugs in this setup.
+> For stability, use the Flatpak version instead.
 
 ```bash
 yay -S bottles
@@ -144,12 +148,12 @@ The icon is located at:
 
 **Flatpak:**
 ```
-/home/{YOUR_USER}/.var/app/com.usebottles.bottles/data/bottles/bottles/TouchDesigner/icons/TouchDesigner.png
+$HOME/.var/app/com.usebottles.bottles/data/bottles/bottles/TouchDesigner/icons/TouchDesigner.png
 ```
 
 **AUR:**
 ```
-/home/{YOUR_USER}/.local/share/bottles/bottles/TouchDesigner/icons/TouchDesigner.png
+$HOME/.local/share/bottles/bottles/TouchDesigner/icons/TouchDesigner.png
 ```
 
 ### `.toe` icon association example
@@ -160,12 +164,41 @@ If the association is correctly configured, `.toe` files will display with the T
 
 If double-clicking a `.toe` file fails to load the project (path error), you need to update your desktop entry.
 
-Locate your `.desktop` file for TouchDesigner (usually in ~/.local/share/applications/) and update the `Exec` line by adding `z:%u`:
+Run the commands below (copy/paste) to create the launcher script:
 
 ```bash
-Exec=flatpak run --command=bottles-cli 'com.usebottles.bottles' run -p TouchDesigner -b TouchDesigner -- "z:%u"
+mkdir -p ~/.local/bin
+cat > ~/.local/bin/touchdesigner-launcher.sh << 'EOF'
+#!/bin/bash
+# Handle Wine path translation for Bottles
+INPUT_PATH="$1"
+
+if [ -z "$INPUT_PATH" ]; then
+    # Launch TD empty
+    flatpak run --command=bottles-cli com.usebottles.bottles run -p TouchDesigner -b TouchDesigner
+else
+	# Some desktop environments pass local files as file:// URIs.
+	if [[ "$INPUT_PATH" == file://* ]]; then
+		INPUT_PATH="${INPUT_PATH#file://}"
+		INPUT_PATH="${INPUT_PATH//%20/ }"
+	fi
+
+    # Launch TD with the file mapped to the Z: drive
+	flatpak run --command=bottles-cli com.usebottles.bottles run -p TouchDesigner -b TouchDesigner --args "z:$INPUT_PATH"
+fi
+EOF
+chmod +x ~/.local/bin/touchdesigner-launcher.sh
 ```
-> 💡 Fix discovered by @chrsmlls333
+
+Then run this command to automatically update the TouchDesigner `.desktop` entry:
+
+```bash
+DESKTOP_DIR="$HOME/.local/share/applications"
+DESKTOP_FILE="$DESKTOP_DIR/TouchDesigner.desktop"
+[ -f "$DESKTOP_FILE" ] || DESKTOP_FILE="$(grep -lE '(^Name=.*TouchDesigner|bottles-cli.*TouchDesigner)' "$DESKTOP_DIR"/*.desktop 2>/dev/null | head -n1)"
+[ -n "$DESKTOP_FILE" ] && sed -i "s|^Exec=.*|Exec=$HOME/.local/bin/touchdesigner-launcher.sh %f|" "$DESKTOP_FILE" && echo "Updated: $DESKTOP_FILE" || echo "TouchDesigner desktop file not found in $DESKTOP_DIR"
+update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
+```
 
 ## 9. Screenshots
 
