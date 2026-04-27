@@ -243,7 +243,7 @@ update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 - Performance may vary depending on hardware and driver setup.
 - Overall, my experience was smoother than on Windows, with better performance and a much cooler-running machine (gaming laptop) due to Linux optimizations.
 
-⚠️ Project Update: Automation on Hold
+⚠️ Project Update:
 >
 >Project status: The planned semi-automation script is currently suspended.
 >
