@@ -2,6 +2,8 @@
 
 ![Screenshot](Screenshots/0.png)
 
+TouchDesigner is not officially supported on Linux, but it can run very well through Bottles **(Wayland)**.
+
 This guide gives a complete, working setup.
 
 ## Table of Contents
@@ -247,11 +249,10 @@ update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 >
 >The planned automated install script is currently suspended.
 >
->The Linux gaming and compatibility landscape is shifting rapidly with the transition from Wine-GE to UMU (Universal Moving Universal) and the new Proton 10 standards. To ensure long-term stability and avoid releasing an obsolete tool, I am putting the custom automation on hold until the UMU ecosystem matures for professional creative software.
+>The Linux gaming and compatibility landscape is shifting rapidly with the transition from Wine-GE to UMU and the new Proton 10 standards. To ensure long-term stability and avoid releasing an obsolete tool, I am putting the custom automation on hold until the UMU ecosystem matures for professional creative software.
 >
 >For now, please stick to the Bottles manual setup for the most reliable experience.
 >
-TouchDesigner is not officially supported on Linux, but it can run very well through Bottles **(Wayland)**.
 
 Built with care.
 
