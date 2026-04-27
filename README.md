@@ -2,14 +2,6 @@
 
 ![Screenshot](Screenshots/0.png)
 
-
-> 🚀 **New project: semi-automation incoming**
->
-> I’m building a script with a config file to make the setup easier across Flatpak environments.
-
-
-TouchDesigner is not officially supported on Linux, but it can run very well through Bottles **(Wayland)**.
-
 This guide gives a complete, working setup.
 
 ## Table of Contents
@@ -250,6 +242,16 @@ update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 - Wayland is strongly recommended (X11 may cause launch issues or black screen)
 - Performance may vary depending on hardware and driver setup.
 - Overall, my experience was smoother than on Windows, with better performance and a much cooler-running machine (gaming laptop) due to Linux optimizations.
+
+⚠️ Project Update: Automation on Hold
+>
+>Project status: The planned semi-automation script is currently suspended.
+>
+>The Linux gaming and compatibility landscape is shifting rapidly with the transition from Wine-GE to UMU (Universal Moving Universal) and the new Proton 10 standards. To ensure long-term stability and avoid releasing an obsolete tool, I am putting the custom automation on hold until the UMU ecosystem matures for professional creative software.
+>
+>For now, please stick to the Bottles manual setup for the most reliable experience.
+>
+TouchDesigner is not officially supported on Linux, but it can run very well through Bottles **(Wayland)**.
 
 Built with care.
 
