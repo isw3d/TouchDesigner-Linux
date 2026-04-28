@@ -556,16 +556,50 @@ install_dxvk() {
 
 install_windows_deps() {
     print_info "Installing Windows dependencies (allfonts, d3dx11_43, vcrun2019)..."
+    print_info "This can take several minutes depending on your network and disk speed."
 
     local wt_log
     wt_log=$(mktemp)
+
+    local wt_start
+    wt_start=$(date +%s)
 
     PATH="$RUNNER_DIR/bin:$PATH" \
     WINEPREFIX="$WINE_PREFIX" \
     WINE="$RUNNER_DIR/bin/wine64" \
     WINESERVER="$RUNNER_DIR/bin/wineserver" \
     WINEDEBUG=-all \
-        bash "$WINETRICKS_BIN" -q allfonts d3dx11_43 vcrun2019 >"$wt_log" 2>&1 || true
+        bash "$WINETRICKS_BIN" -q allfonts d3dx11_43 vcrun2019 >"$wt_log" 2>&1 &
+
+    local wt_pid=$!
+    local last_progress=""
+
+    while kill -0 "$wt_pid" 2>/dev/null; do
+        local elapsed
+        elapsed=$(( $(date +%s) - wt_start ))
+
+        # Try to show a meaningful progress hint from winetricks output.
+        local progress_line
+        progress_line=$(grep -E 'Executing|Downloading|Installing|Using' "$wt_log" 2>/dev/null | tail -n 1)
+        if [ -z "$progress_line" ]; then
+            progress_line=$(tail -n 1 "$wt_log" 2>/dev/null | tr -d '\r')
+        fi
+
+        if [ -n "$progress_line" ] && [ "$progress_line" != "$last_progress" ]; then
+            print_info "Winetricks (${elapsed}s): $progress_line"
+            last_progress="$progress_line"
+        else
+            print_info "Winetricks still running... (${elapsed}s)"
+        fi
+
+        sleep 12
+    done
+
+    wait "$wt_pid" || true
+
+    local total_elapsed
+    total_elapsed=$(( $(date +%s) - wt_start ))
+    print_info "Windows dependencies step completed in ${total_elapsed}s"
 
     # Check for real failures (exclude known harmless patterns)
     local real_errors
