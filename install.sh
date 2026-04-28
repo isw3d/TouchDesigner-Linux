@@ -345,7 +345,6 @@ install_packages() {
                     s/^#Include/Include/
                 }' /etc/pacman.conf 2>/dev/null || true
             fi
-            sudo pacman -Syy --noconfirm >/dev/null 2>&1 || true
 
             print_info "Installing required packages..."
             local pkg_log
@@ -365,13 +364,13 @@ install_packages() {
         apt)
             print_info "Enabling 32-bit architecture..."
             sudo dpkg --add-architecture i386 >/dev/null 2>&1 || true
-            sudo apt-get update -qq >/dev/null 2>&1
             if ! run_and_tail 5 sudo apt-get install -y \
                 curl wget tar xz-utils cabextract unzip p7zip-full \
                 libvulkan1 libvulkan1:i386 vulkan-tools \
                 libglib2.0-0 libglib2.0-0:i386 \
                 libx11-6 libx11-6:i386; then
                 print_error "Failed to install required packages"
+                print_info "Try: sudo apt-get update && sudo apt-get upgrade"
                 exit 1
             fi
             ;;
@@ -392,6 +391,7 @@ install_packages() {
                 glibc.i686 libX11.i686 glib2.i686 \
                 mesa-vulkan-drivers.i686; then
                 print_error "Failed to install required packages"
+                print_info "Try: sudo dnf upgrade --refresh"
                 exit 1
             fi
             ;;
@@ -403,6 +403,7 @@ install_packages() {
                 libglib-2_0-0 libglib-2_0-0-32bit \
                 libX11-6 libX11-6-32bit; then
                 print_error "Failed to install required packages"
+                print_info "Try: sudo zypper refresh && sudo zypper update"
                 exit 1
             fi
             ;;
