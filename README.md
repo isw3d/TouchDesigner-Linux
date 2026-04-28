@@ -1,19 +1,121 @@
-# TouchDesigner on Linux (via Bottles)
+# TouchDesigner-Linux
+
+Automated installer to run TouchDesigner on Linux with a standalone Soda Wine runner (no Bottles required).
 
 ![Screenshot](Screenshots/0.png)
 
-
-## Quick install
+## Quick Install
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/install.sh | bash
 ```
 
-⚠️ This script modifies your system and installs Wine + dependencies.
-Run only if you trust the source.
+## For dev
+
+```bash
+curl -sSL https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/test/script-integration/install.sh | bash
+
+This script installs system dependencies, Wine runner, Winetricks components, TouchDesigner launcher, and optional desktop integration.
+
+## What The Installer Does
+
+1. Detects distro and package manager.
+2. Installs required Linux packages.
+3. Downloads and configures Soda Wine runner.
+4. Initializes a dedicated Wine prefix.
+5. Installs Windows dependencies with Winetricks.
+6. Lets you choose a TouchDesigner version and run the installer.
+7. Creates launcher, desktop shortcut, app-menu entry, and optional .toe association.
+
+## Supported Distros
+
+The script autodetects and supports package installation on:
+
+- Arch-based (pacman)
+- Ubuntu/Debian-based (apt)
+- Fedora/RHEL-based (dnf)
+- openSUSE/SUSE-based (zypper)
+
+## Runtime Expectations
+
+- Initial full setup can be long. It can take around 50-60 minutes depending on network and machine speed.
+- Running TouchDesigner installer itself is the slowest task in this install.
+- First launch of TouchDesigner can take 1 to 2 minutes.
+
+This is all normal.
+
+## Useful Paths
+
+- Launcher script: ~/.local/bin/launch-touchdesigner.sh
+- Desktop shortcut: ~/Desktop/TouchDesigner.desktop
+- App menu entry: ~/.local/share/applications/touchdesigner.desktop
+- File association entry: ~/.local/share/applications/touchdesigner-file.desktop
+- Wine prefix + assets base: ~/.local/share/touchdesigner-linux
+- Optional font fix file: ~/.local/share/touchdesigner-linux/wine_ui_fixes.tox
+
+## Troubleshooting
+
+### No display / installer GUI fails
+
+Symptoms include Wine window creation errors.
+
+Check that you run from a graphical session with DISPLAY or WAYLAND_DISPLAY set.
+
+### Version list fetch fails
+
+If the Derivative website is slow/unreachable, the script falls back to a curated list of known versions automatically.
+
+### Long dependency phase
+
+If output seems quiet during Windows dependency installation, wait: the step is often long and expected.
+
+### Duplicate menu entry
+
+The .toe association entry is hidden from app menu by default (NoDisplay=true). If old duplicates remain, remove stale .desktop files in ~/.local/share/applications and refresh desktop database.
+
+## File Association Behavior
+
+- The launcher accepts file URIs and normal paths.
+- .toe association uses %u and the launcher handles path conversion.
+
+## Uninstall
+
+Run installer again and choose Uninstall.
+
+This removes runner, prefix, launcher, desktop entries, and file association files created by this script.
+
+## Compatibility Notes
+
+Observed on recent NVIDIA + Wayland setups:
+
+- Launch and runtime: working
+- UI rendering: working with wine_ui_fixes.tox
+- NDI and TD-Bitwig: working in tested setups
+- Video Device In: partial (device may lock until restart/replug)
+- NVIDIA TOP: not working in this Wine environment (CUDA/TensorRT init issues)
+
+## Screenshots
+
+![Setup](Screenshots/1.png)
+![Dependencies](Screenshots/2.png)
+![Run executable](Screenshots/3.png)
+![Launch](Screenshots/4.png)
+![Font fix](Screenshots/5.png)
+![Optional setup](Screenshots/6.png)
+![Toe icon example](Screenshots/7.png)
+
+Built with care.
+
+Iswad
+
+
+______
 
 
 
+# TouchDesigner on Linux (via Bottles)
+
+![Screenshot](Screenshots/0.png)
 
 TouchDesigner is not officially supported on Linux, but it can run very well through Bottles **(Wayland)**.
 
@@ -112,7 +214,7 @@ Some UI elements may appear blank due to font rendering issues.
 ### Solution
 
 1. Add `wine_ui_fixes.tox` to your project.
-	- [Download `wine_ui_fixes.tox` directly](https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/Assets/wine_ui_fixes.tox)
+	- [Download `wine_ui_fixes.tox` directly](https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/wine_ui_fixes.tox)
 	- Original post: [c0deous on Derivative](https://derivative.ca/community-post/asset/minor-ui-fixes-touchdesigner-wine/73421)
 2. Click **Fix Now**.
 
@@ -257,6 +359,15 @@ update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 - Wayland is strongly recommended (X11 may cause launch issues or black screen)
 - Performance may vary depending on hardware and driver setup.
 - Overall, my experience was smoother than on Windows, with better performance and a much cooler-running machine (gaming laptop) due to Linux optimizations.
+
+⚠️ Project Update:
+>
+>The planned automated install script is currently suspended.
+>
+>The Linux gaming and compatibility landscape is shifting rapidly with the transition from Wine-GE to UMU and the new Proton 10 standards. To ensure long-term stability and avoid releasing an obsolete tool, I am putting the custom automation on hold until the UMU ecosystem matures for professional creative software.
+>
+>For now, please stick to the Bottles manual setup for the most reliable experience.
+>
 
 Built with care.
 

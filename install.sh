@@ -564,42 +564,52 @@ install_windows_deps() {
     local wt_start
     wt_start=$(date +%s)
 
+    # Keep the installer visibly alive while winetricks runs in foreground.
+    (
+        local last_progress=""
+        while true; do
+            local elapsed
+            elapsed=$(( $(date +%s) - wt_start ))
+
+            local progress_line
+            progress_line=$(grep -E 'Executing|Downloading|Installing|Using' "$wt_log" 2>/dev/null | tail -n 1)
+            if [ -z "$progress_line" ]; then
+                progress_line=$(tail -n 1 "$wt_log" 2>/dev/null | tr -d '\r')
+            fi
+
+            if [ -n "$progress_line" ] && [ "$progress_line" != "$last_progress" ]; then
+                print_info "Winetricks (${elapsed}s): $progress_line"
+                last_progress="$progress_line"
+            else
+                print_info "Winetricks still running... (${elapsed}s)"
+            fi
+
+            sleep 12
+        done
+    ) &
+    local heartbeat_pid=$!
+
+    local wt_status=0
+    set +e
     PATH="$RUNNER_DIR/bin:$PATH" \
     WINEPREFIX="$WINE_PREFIX" \
     WINE="$RUNNER_DIR/bin/wine64" \
     WINESERVER="$RUNNER_DIR/bin/wineserver" \
     WINEDEBUG=-all \
-        bash "$WINETRICKS_BIN" -q allfonts d3dx11_43 vcrun2019 >"$wt_log" 2>&1 &
+        bash "$WINETRICKS_BIN" -q allfonts d3dx11_43 vcrun2019 >"$wt_log" 2>&1
+    wt_status=$?
+    set -e
 
-    local wt_pid=$!
-    local last_progress=""
-
-    while kill -0 "$wt_pid" 2>/dev/null; do
-        local elapsed
-        elapsed=$(( $(date +%s) - wt_start ))
-
-        # Try to show a meaningful progress hint from winetricks output.
-        local progress_line
-        progress_line=$(grep -E 'Executing|Downloading|Installing|Using' "$wt_log" 2>/dev/null | tail -n 1)
-        if [ -z "$progress_line" ]; then
-            progress_line=$(tail -n 1 "$wt_log" 2>/dev/null | tr -d '\r')
-        fi
-
-        if [ -n "$progress_line" ] && [ "$progress_line" != "$last_progress" ]; then
-            print_info "Winetricks (${elapsed}s): $progress_line"
-            last_progress="$progress_line"
-        else
-            print_info "Winetricks still running... (${elapsed}s)"
-        fi
-
-        sleep 12
-    done
-
-    wait "$wt_pid" || true
+    kill "$heartbeat_pid" >/dev/null 2>&1 || true
+    wait "$heartbeat_pid" 2>/dev/null || true
 
     local total_elapsed
     total_elapsed=$(( $(date +%s) - wt_start ))
     print_info "Windows dependencies step completed in ${total_elapsed}s"
+
+    if [ "$wt_status" -ne 0 ]; then
+        print_warning "Winetricks exited with status ${wt_status}; checking logs for recoverable issues"
+    fi
 
     # Check for real failures (exclude known harmless patterns)
     local real_errors
@@ -656,31 +666,45 @@ download_touchdesigner() {
     local selected=""
     local selected_version=""
     local max_versions=10
+    local td_html
+    td_html=$(mktemp)
 
     print_info "Fetching available TouchDesigner versions..."
-    mapfile -t versions < <(
-        curl -fsSL --max-time 20 "$td_page" 2>/dev/null \
-            | grep -oE 'https://download\.derivative\.ca/TouchDesigner\.[0-9]+\.[0-9]+\.exe' \
-            | sed -E 's#^.*/TouchDesigner\.##; s#\.exe$##' \
-            | sort -Vu \
-            | sort -Vr
-    )
+    print_info "Trying Derivative website (curl, timeout 20s)..."
+    curl -fsSL \
+        --connect-timeout 8 \
+        --max-time 20 \
+        --retry 1 \
+        --retry-delay 1 \
+        "$td_page" \
+        -o "$td_html" 2>/dev/null || true
 
-    # Retry with wget if curl fetch did not return version links.
-    if [ "${#versions[@]}" -eq 0 ]; then
+    if [ ! -s "$td_html" ]; then
+        print_warning "Could not fetch versions with curl"
+        print_info "Retrying with wget (timeout 20s)..."
+        wget -q \
+            --timeout=20 \
+            --tries=1 \
+            -O "$td_html" "$td_page" 2>/dev/null || true
+    fi
+
+    if [ -s "$td_html" ]; then
         mapfile -t versions < <(
-            wget -qO- "$td_page" 2>/dev/null \
-                | grep -oE 'https://download\.derivative\.ca/TouchDesigner\.[0-9]+\.[0-9]+\.exe' \
+            grep -oE 'https://download\.derivative\.ca/TouchDesigner\.[0-9]+\.[0-9]+\.exe' "$td_html" \
                 | sed -E 's#^.*/TouchDesigner\.##; s#\.exe$##' \
                 | sort -Vu \
                 | sort -Vr
         )
     fi
 
+    rm -f "$td_html"
+
     if [ "${#versions[@]}" -eq 0 ]; then
         print_warning "Could not fetch live version list from Derivative website"
         versions=("${fallback_versions[@]}")
         print_info "Using curated version list fallback"
+    else
+        print_success "Found ${#versions[@]} available versions"
     fi
 
     if [ "${#versions[@]}" -gt "$max_versions" ]; then
@@ -991,8 +1015,8 @@ DESKTOP
     print_success "Desktop shortcut created"
 }
 
-associate_toe_files() {
-    if [[ ! $ASSOC_FILES =~ ^[Yy]$ ]]; then
+create_applications_shortcut() {
+    if [[ ! $CREATE_SHORTCUT =~ ^[Yy]$ ]]; then
         return
     fi
 
@@ -1003,16 +1027,43 @@ associate_toe_files() {
 Version=1.0
 Type=Application
 Name=TouchDesigner
-Exec=$LAUNCHER_PATH z:%u
+Comment=Real-time Visual Programming Environment
+Exec=$LAUNCHER_PATH
+Icon=$TD_ICON_PATH
+Terminal=false
+Categories=Graphics;Development;
+DESKTOP
+
+    if command -v update-desktop-database >/dev/null 2>&1; then
+        update-desktop-database "$APPLICATIONS_DIR" >/dev/null 2>&1 || true
+    fi
+
+    print_success "Application menu entry created"
+}
+
+associate_toe_files() {
+    if [[ ! $ASSOC_FILES =~ ^[Yy]$ ]]; then
+        return
+    fi
+
+    mkdir -p "$APPLICATIONS_DIR"
+
+    cat > "$APPLICATIONS_DIR/touchdesigner-file.desktop" << DESKTOP
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=TouchDesigner (Project File)
+Exec=$LAUNCHER_PATH %u
 Icon=$TD_ICON_PATH
 MimeType=application/x-touchdesigner;
+NoDisplay=true
 Categories=Graphics;Development;
 DESKTOP
 
     register_toe_mimetype
 
     if command -v xdg-mime >/dev/null 2>&1; then
-        xdg-mime default touchdesigner.desktop application/x-touchdesigner 2>/dev/null || true
+        xdg-mime default touchdesigner-file.desktop application/x-touchdesigner 2>/dev/null || true
     fi
 
     print_success ".toe files associated"
@@ -1060,6 +1111,10 @@ uninstall_touchdesigner() {
     print_info "Removing file association..."
     if [ -f "$APPLICATIONS_DIR/touchdesigner.desktop" ]; then
         rm -f "$APPLICATIONS_DIR/touchdesigner.desktop"
+        print_success "Application menu entry removed"
+    fi
+    if [ -f "$APPLICATIONS_DIR/touchdesigner-file.desktop" ]; then
+        rm -f "$APPLICATIONS_DIR/touchdesigner-file.desktop"
         print_success "File association removed"
     fi
 
@@ -1154,6 +1209,7 @@ main() {
             IFS= read -r -n 1 CREATE_SHORTCUT <"$INTERACTIVE_INPUT" || CREATE_SHORTCUT=""
             printf "\n"
             create_desktop_shortcut
+            create_applications_shortcut
 
             printf "Associate .toe files with TouchDesigner? (y/n): "
             IFS= read -r -n 1 ASSOC_FILES <"$INTERACTIVE_INPUT" || ASSOC_FILES=""
@@ -1170,7 +1226,7 @@ main() {
             printf "${PRIMARY}Installation Complete${NC}\n"
             printf "${SECONDARY}TouchDesigner is ready to use!${NC}\n"
             printf "\n"
-            print_success "Launch TouchDesigner:"
+            print_success "Launch TouchDesigner from the shortcut, or run this command in your terminal:"
             print_info "$LAUNCHER_PATH"
             printf "\n"
             printf "${SECONDARY}Iswad${NC}\n"
