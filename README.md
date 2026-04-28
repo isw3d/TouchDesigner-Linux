@@ -14,6 +14,7 @@ curl -sSL https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/insta
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/test/script-integration/install.sh | bash
+```
 
 This script installs system dependencies, Wine runner, Winetricks components, TouchDesigner launcher, and optional desktop integration.
 
