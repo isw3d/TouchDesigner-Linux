@@ -1,0 +1,1132 @@
+#!/bin/bash
+
+set -eo pipefail
+
+# Colors for output
+BLACK='\033[0;30m'
+WHITE='\033[0;97m'
+GRAY='\033[0;90m'
+DIM='\033[2m'
+BOLD='\033[1m'
+
+PRIMARY='\033[0;97m'
+SECONDARY='\033[0;90m'
+ACCENT='\033[2;37m'
+SUCCESS='\033[0;97m'
+ERROR='\033[0;90m'
+NC='\033[0m' # No Color
+
+# Check for Linux
+if [ "$(uname)" != "Linux" ]; then
+    printf "${SECONDARY}▸${NC} Error: This installer only supports Linux systems\n"
+    exit 1
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Configuration
+TD_BASE_DIR="$HOME/.local/share/touchdesigner-linux"
+RUNNER_DIR="$TD_BASE_DIR/runner"
+WINE_PREFIX="$TD_BASE_DIR/prefix"
+WINETRICKS_BIN="$TD_BASE_DIR/winetricks"
+DOWNLOAD_DIR="$HOME/Downloads"
+DESKTOP_DIR="$HOME/Desktop"
+APPLICATIONS_DIR="$HOME/.local/share/applications"
+LAUNCHER_DIR="$HOME/.local/bin"
+LAUNCHER_PATH="$LAUNCHER_DIR/launch-touchdesigner.sh"
+
+SODA_URL="https://github.com/bottlesdevs/wine/releases/download/soda-9.0-1/soda-9.0-1-x86_64.tar.xz"
+DXVK_VERSION="2.4"
+DXVK_URL="https://github.com/doitsujin/dxvk/releases/download/v${DXVK_VERSION}/dxvk-${DXVK_VERSION}.tar.gz"
+REPO_ASSETS_BASE_URL="${REPO_ASSETS_BASE_URL:-https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/Assets}"
+
+# Get terminal width for horizontal rules
+TERMINAL_WIDTH=$(tput cols 2>/dev/null)
+TERMINAL_WIDTH=${TERMINAL_WIDTH:-60}
+
+# Configuration variables
+FAST_MODE=${FAST_MODE:-false}
+ENABLE_DXVK=Y
+CREATE_SHORTCUT=N
+ASSOC_FILES=N
+TD_ICON_PATH="touchdesigner"
+
+# Utility functions for Iswad aesthetic
+
+print_hr() {
+    local hr=$(printf '%.0s─' $(seq 1 "$TERMINAL_WIDTH"))
+    printf "${DIM}%s${NC}\n" "$hr"
+}
+
+print_banner() {
+    [ -t 1 ] && clear
+    print_hr
+    printf "${BOLD}${PRIMARY}TouchDesigner Linux installer${NC}\n"
+    printf "${SECONDARY}By Iswad${NC}\n"
+    print_hr
+}
+
+print_container() {
+    local title="$1"
+    local content="$2"
+    printf " ${DIM}╔═══════════════════════════════════╗${NC}\n"
+    printf " ${DIM}║${NC} %-33s ${DIM}║${NC}\n" "$title: $content"
+    printf " ${DIM}╚═══════════════════════════════════╝${NC}\n"
+}
+
+print_list_item() {
+    local label="$1"
+    local text="$2"
+    printf "  ${DIM}[${NC}${PRIMARY}${BOLD}%-7s${NC}${DIM}]${NC}  %s\n" "$label" "$text"
+}
+
+print_footer() {
+    printf "\n"
+    print_hr
+    printf "Press ${PRIMARY}[Enter]${NC} to start, ${SECONDARY}[Ctrl+C]${NC} to quit\n"
+}
+
+print_success() {
+    printf "${PRIMARY}▸${NC} %s\n" "$1"
+}
+
+print_error() {
+    printf "${SECONDARY}▸${NC} %s\n" "$1"
+}
+
+print_info() {
+    printf "${DIM}→${NC} %s\n" "$1"
+}
+
+print_warning() {
+    printf "${DIM}•${NC} %s\n" "$1"
+}
+
+require_graphical_session() {
+    if [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
+        return
+    fi
+
+    print_error "No graphical session detected"
+    print_info "Run this installer from a terminal inside your desktop session (not plain TTY/SSH)."
+    print_info "Expected DISPLAY or WAYLAND_DISPLAY to be set."
+    exit 1
+}
+
+run_and_tail() {
+    local lines="$1"
+    shift
+
+    local log_file
+    log_file=$(mktemp)
+
+    if "$@" >"$log_file" 2>&1; then
+        tail -n "$lines" "$log_file"
+        rm -f "$log_file"
+        return 0
+    fi
+
+    tail -n "$lines" "$log_file"
+    rm -f "$log_file"
+    return 1
+}
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# INTERACTIVE MENU
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+show_main_menu() {
+    detect_package_manager
+    print_banner
+
+    printf "\n${BOLD}${DIM}Environment check${NC}\n\n"
+
+    # System info container
+    OS_NAME=$(source /etc/os-release 2>/dev/null && echo "$PRETTY_NAME" 2>/dev/null || echo "Unknown")
+    ARCH_NAME=$(uname -m)
+    print_container "System" "$OS_NAME / $ARCH_NAME"
+
+    # Compatibility check
+    local compat_ok=true
+    if [ "$ARCH_NAME" != "x86_64" ]; then
+        compat_ok=false
+    fi
+    if [ "$PKG_MANAGER" = "unknown" ]; then
+        compat_ok=false
+    fi
+
+    if [ "$compat_ok" = true ]; then
+        printf "  ${PRIMARY}▸ Your Linux is supported${NC}\n\n"
+    else
+        printf "  ${SECONDARY}▸ Your Linux is not supported${NC}\n"
+        if [ "$ARCH_NAME" != "x86_64" ]; then
+            printf "  ${DIM}  Architecture %s is not supported (x86_64 required)${NC}\n" "$ARCH_NAME"
+        fi
+        if [ "$PKG_MANAGER" = "unknown" ]; then
+            printf "  ${DIM}  No supported package manager found (apt/dnf/pacman/zypper)${NC}\n"
+        fi
+        printf "\n"
+    fi
+
+    # What you get list
+    printf "\n${BOLD}${PRIMARY}WHAT YOU GET:${NC}\n\n"
+    print_list_item "Runner" "Soda Wine 9.0-1 (standalone, no Bottles)"
+    print_list_item "GPU" "DXVK $DXVK_VERSION (DirectX → Vulkan)"
+    print_list_item "Font" "All Windows fonts (allfonts)"
+    print_list_item "App" "Latest TouchDesigner version installation"
+
+    # Installation options
+    printf "\n${PRIMARY}INSTALLATION OPTIONS :${NC}\n\n"
+    printf "  1  Full install\n"
+    printf "${ACCENT}      • Run TouchDesigner on Linux without Bottles.${NC}\n"
+    printf "${ACCENT}      • Auto-configure Wine and required Windows components.${NC}\n"
+    printf "${ACCENT}      • Install DXVK for better graphics performance.${NC}\n"
+    printf "\n"
+    printf "${ACCENT}      -> Already installed? Re-run safely ! Completed steps will be skipped.${NC}\n"
+    printf "\n"
+    printf "  2  Uninstall\n"
+    printf "${ACCENT}      • Removes the Wine prefix, runner, launcher, and all TouchDesigner data.${NC}\n"
+    printf "\n"
+    printf "  0  Exit\n"
+    printf "${ACCENT}      • Quit this script without making changes.${NC}\n\n"
+
+    read -r -p "Select option [1]: " choice
+    choice=${choice:-1}
+    choice=$(printf "%s" "$choice" | tr -d '[:space:]')
+}
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DETECTION & INSTALLATION
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+detect_package_manager() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+    fi
+
+    local os_id="${ID,,}"
+    local os_id_like="${ID_LIKE,,}"
+
+    case "$os_id" in
+        arch)
+            PKG_MANAGER="pacman"; PKG_DISTRO="Arch Linux";
+            ;;
+        manjaro)
+            PKG_MANAGER="pacman"; PKG_DISTRO="Manjaro";
+            ;;
+        endeavouros)
+            PKG_MANAGER="pacman"; PKG_DISTRO="EndeavourOS";
+            ;;
+        garuda|garudalinux)
+            PKG_MANAGER="pacman"; PKG_DISTRO="Garuda Linux";
+            ;;
+        artix)
+            PKG_MANAGER="pacman"; PKG_DISTRO="Artix Linux";
+            ;;
+        rebornos)
+            PKG_MANAGER="pacman"; PKG_DISTRO="RebornOS";
+            ;;
+        archcraft)
+            PKG_MANAGER="pacman"; PKG_DISTRO="Archcraft";
+            ;;
+        cachyos)
+            PKG_MANAGER="pacman"; PKG_DISTRO="CachyOS";
+            ;;
+        ubuntu)
+            PKG_MANAGER="apt"; PKG_DISTRO="Ubuntu";
+            ;;
+        linuxmint)
+            PKG_MANAGER="apt"; PKG_DISTRO="Linux Mint";
+            ;;
+        pop|pop_os|pop_os)
+            PKG_MANAGER="apt"; PKG_DISTRO="Pop!_OS";
+            ;;
+        debian)
+            PKG_MANAGER="apt"; PKG_DISTRO="Debian";
+            ;;
+        fedora)
+            PKG_MANAGER="dnf"; PKG_DISTRO="Fedora";
+            ;;
+        rocky|rocky-linux)
+            PKG_MANAGER="dnf"; PKG_DISTRO="Rocky Linux";
+            ;;
+        almalinux|alma)
+            PKG_MANAGER="dnf"; PKG_DISTRO="AlmaLinux";
+            ;;
+        centos)
+            PKG_MANAGER="dnf"; PKG_DISTRO="CentOS";
+            ;;
+        opensuse*|suse*)
+            PKG_MANAGER="zypper"; PKG_DISTRO="openSUSE/SUSE";
+            ;;
+        zorin)
+            PKG_MANAGER="apt"; PKG_DISTRO="Zorin OS";
+            ;;
+        elementary)
+            PKG_MANAGER="apt"; PKG_DISTRO="elementary OS";
+            ;;
+        neon)
+            PKG_MANAGER="apt"; PKG_DISTRO="KDE Neon";
+            ;;
+        kali)
+            PKG_MANAGER="apt"; PKG_DISTRO="Kali Linux";
+            ;;
+        parrot)
+            PKG_MANAGER="apt"; PKG_DISTRO="Parrot OS";
+            ;;
+        mx)
+            PKG_MANAGER="apt"; PKG_DISTRO="MX Linux";
+            ;;
+        lmde)
+            PKG_MANAGER="apt"; PKG_DISTRO="Linux Mint Debian Edition";
+            ;;
+        *)
+            case "$os_id_like" in
+                *arch*)
+                    PKG_MANAGER="pacman"; PKG_DISTRO="Arch-based Linux";
+                    ;;
+                *ubuntu*|*debian*)
+                    PKG_MANAGER="apt"; PKG_DISTRO="Ubuntu/Debian-based Linux";
+                    ;;
+                *fedora*|*rhel*)
+                    PKG_MANAGER="dnf"; PKG_DISTRO="Fedora/RHEL-based Linux";
+                    ;;
+                *suse*)
+                    PKG_MANAGER="zypper"; PKG_DISTRO="SUSE-based Linux";
+                    ;;
+                *)
+                    if command -v pacman >/dev/null 2>&1; then
+                        PKG_MANAGER="pacman"; PKG_DISTRO="Pacman-based Linux";
+                    elif command -v dnf >/dev/null 2>&1; then
+                        PKG_MANAGER="dnf"; PKG_DISTRO="DNF-based Linux";
+                    elif command -v apt-get >/dev/null 2>&1; then
+                        PKG_MANAGER="apt"; PKG_DISTRO="APT-based Linux";
+                    elif command -v zypper >/dev/null 2>&1; then
+                        PKG_MANAGER="zypper"; PKG_DISTRO="openSUSE/SUSE";
+                    else
+                        PKG_MANAGER="unknown"; PKG_DISTRO="Unknown Linux";
+                    fi
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+install_packages() {
+    case "$PKG_MANAGER" in
+        pacman)
+            print_info "Enabling multilib repository if needed..."
+            if grep -q "^#\[multilib\]" /etc/pacman.conf; then
+                sudo sed -i '/^#\[multilib\]/,+1 {
+                    s/^#\[multilib\]/[multilib]/
+                    s/^#Include/Include/
+                }' /etc/pacman.conf 2>/dev/null || true
+            fi
+            sudo pacman -Syy --noconfirm >/dev/null 2>&1 || true
+
+            print_info "Installing required packages..."
+            local pkg_log
+            pkg_log=$(mktemp)
+            if ! sudo pacman -S --needed --noconfirm \
+                curl wget tar xz cabextract unzip p7zip \
+                vulkan-tools vulkan-icd-loader lib32-vulkan-icd-loader \
+                lib32-glib2 lib32-gcc-libs lib32-libx11 libx11 \
+                xorg-xwayland >"$pkg_log" 2>&1; then
+                tail -n 10 "$pkg_log"
+                rm -f "$pkg_log"
+                print_error "Failed to install packages. Try: sudo pacman -Syu"
+                exit 1
+            fi
+            rm -f "$pkg_log"
+            ;;
+        apt)
+            print_info "Enabling 32-bit architecture..."
+            sudo dpkg --add-architecture i386 >/dev/null 2>&1 || true
+            sudo apt-get update -qq >/dev/null 2>&1
+            if ! run_and_tail 5 sudo apt-get install -y \
+                curl wget tar xz-utils cabextract unzip p7zip-full \
+                libvulkan1 libvulkan1:i386 vulkan-tools \
+                libglib2.0-0 libglib2.0-0:i386 \
+                libx11-6 libx11-6:i386; then
+                print_error "Failed to install required packages"
+                exit 1
+            fi
+            ;;
+        dnf)
+            print_info "Enabling RPM Fusion free repository if needed..."
+            local fedora_ver
+            fedora_ver=$(rpm -E %fedora 2>/dev/null)
+            if [[ "$fedora_ver" =~ ^[0-9]+$ ]]; then
+                sudo dnf install -y \
+                    "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${fedora_ver}.noarch.rpm" \
+                    >/dev/null 2>&1 || true
+            fi
+
+            print_info "Installing required packages..."
+            if ! run_and_tail 5 sudo dnf install -y \
+                curl wget tar xz cabextract unzip p7zip \
+                vulkan-loader mesa-vulkan-drivers vulkan-tools \
+                glibc.i686 libX11.i686 glib2.i686 \
+                mesa-vulkan-drivers.i686; then
+                print_error "Failed to install required packages"
+                exit 1
+            fi
+            ;;
+        zypper)
+            print_info "Installing required packages..."
+            if ! run_and_tail 5 sudo zypper install -y \
+                curl wget tar xz cabextract unzip p7zip \
+                libvulkan1 libvulkan1-32bit vulkan-tools \
+                libglib-2_0-0 libglib-2_0-0-32bit \
+                libX11-6 libX11-6-32bit; then
+                print_error "Failed to install required packages"
+                exit 1
+            fi
+            ;;
+        *)
+            print_error "Distribution not automatically supported"
+            exit 1
+            ;;
+    esac
+
+    print_success "System packages installed"
+}
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# WINE RUNNER SETUP
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+download_soda_runner() {
+    if [ -f "$RUNNER_DIR/bin/wine64" ]; then
+        print_success "Soda Wine runner already installed"
+        return
+    fi
+
+    print_info "Downloading Soda Wine 9.0-1 runner (~300MB)..."
+    local tarball="$TD_BASE_DIR/soda-runner.tar.xz"
+    mkdir -p "$TD_BASE_DIR"
+
+    wget --show-progress -O "$tarball" "$SODA_URL" || {
+        print_error "Failed to download Soda Wine runner"
+        rm -f "$tarball"
+        exit 1
+    }
+
+    print_info "Extracting Soda Wine runner..."
+    mkdir -p "$RUNNER_DIR"
+    tar -xJf "$tarball" -C "$RUNNER_DIR" --strip-components=1
+    rm -f "$tarball"
+
+    if [ ! -f "$RUNNER_DIR/bin/wine64" ]; then
+        print_error "Wine runner extraction failed: bin/wine64 not found"
+        print_info "Contents of $RUNNER_DIR:"
+        ls -la "$RUNNER_DIR" 2>/dev/null || true
+        exit 1
+    fi
+
+    chmod +x "$RUNNER_DIR/bin/wine" "$RUNNER_DIR/bin/wine64" 2>/dev/null || true
+    print_success "Soda Wine runner installed"
+}
+
+setup_wine_prefix() {
+    if [ -d "$WINE_PREFIX/drive_c" ]; then
+        print_success "Wine prefix already initialized"
+        return
+    fi
+
+    require_graphical_session
+
+    print_info "Initializing Wine prefix (win64)..."
+    mkdir -p "$WINE_PREFIX"
+
+    local wineboot_log
+    wineboot_log=$(mktemp)
+
+    if ! WINEPREFIX="$WINE_PREFIX" \
+        WINEARCH=win64 \
+        WINEDLLOVERRIDES="mscoree,mshtml=" \
+        PATH="$RUNNER_DIR/bin:$PATH" \
+            "$RUNNER_DIR/bin/wineboot" --init >"$wineboot_log" 2>&1; then
+        tail -n 20 "$wineboot_log" || true
+        rm -f "$wineboot_log"
+        print_error "Wine prefix initialization failed"
+        exit 1
+    fi
+
+    rm -f "$wineboot_log"
+
+    sleep 2
+    WINEPREFIX="$WINE_PREFIX" PATH="$RUNNER_DIR/bin:$PATH" \
+        "$RUNNER_DIR/bin/wineserver" -k 2>/dev/null || true
+
+    if [ ! -d "$WINE_PREFIX/drive_c" ]; then
+        print_error "Wine prefix initialization failed"
+        exit 1
+    fi
+
+    print_success "Wine prefix initialized"
+}
+
+download_winetricks() {
+    if [ -f "$WINETRICKS_BIN" ] && [ -x "$WINETRICKS_BIN" ]; then
+        print_success "Winetricks already available"
+        return
+    fi
+
+    print_info "Downloading winetricks..."
+    mkdir -p "$TD_BASE_DIR"
+    wget -O "$WINETRICKS_BIN" \
+        "https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks" || {
+        print_error "Failed to download winetricks"
+        exit 1
+    }
+    chmod +x "$WINETRICKS_BIN"
+    print_success "Winetricks downloaded"
+}
+
+install_dxvk() {
+    if [[ "$ENABLE_DXVK" =~ ^[Nn]$ ]]; then
+        return
+    fi
+
+    local sys32="$WINE_PREFIX/drive_c/windows/system32"
+    if [ -f "$sys32/d3d11.dll" ] && file "$sys32/d3d11.dll" 2>/dev/null | grep -qi "PE32"; then
+        print_success "DXVK already installed"
+        return
+    fi
+
+    print_info "Downloading DXVK $DXVK_VERSION..."
+    local dxvk_tarball="$TD_BASE_DIR/dxvk.tar.gz"
+    wget -O "$dxvk_tarball" "$DXVK_URL" || {
+        print_warning "Failed to download DXVK, skipping"
+        rm -f "$dxvk_tarball"
+        return
+    }
+
+    local dxvk_dir
+    dxvk_dir=$(mktemp -d)
+    tar -xzf "$dxvk_tarball" -C "$dxvk_dir" --strip-components=1
+    rm -f "$dxvk_tarball"
+
+    print_info "Installing DXVK..."
+    PATH="$RUNNER_DIR/bin:$PATH" \
+    WINEPREFIX="$WINE_PREFIX" \
+    WINE="$RUNNER_DIR/bin/wine64" \
+        bash "$dxvk_dir/setup_dxvk.sh" install 2>/dev/null || {
+        print_warning "DXVK setup script failed, installing DLLs manually..."
+        local syswow64="$WINE_PREFIX/drive_c/windows/syswow64"
+        mkdir -p "$sys32" "$syswow64"
+        [ -d "$dxvk_dir/x64" ] && cp "$dxvk_dir"/x64/*.dll "$sys32/" 2>/dev/null || true
+        [ -d "$dxvk_dir/x32" ] && cp "$dxvk_dir"/x32/*.dll "$syswow64/" 2>/dev/null || true
+
+        for dll in d3d9 d3d10core d3d11 dxgi; do
+            WINEPREFIX="$WINE_PREFIX" PATH="$RUNNER_DIR/bin:$PATH" \
+                "$RUNNER_DIR/bin/wine64" reg add \
+                "HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides" \
+                /v "$dll" /t REG_SZ /d native /f 2>/dev/null || true
+        done
+    }
+
+    rm -rf "$dxvk_dir"
+    print_success "DXVK installed"
+}
+
+install_windows_deps() {
+    print_info "Installing Windows dependencies (allfonts, d3dx11_43, vcrun2019)..."
+
+    local wt_log
+    wt_log=$(mktemp)
+
+    PATH="$RUNNER_DIR/bin:$PATH" \
+    WINEPREFIX="$WINE_PREFIX" \
+    WINE="$RUNNER_DIR/bin/wine64" \
+    WINESERVER="$RUNNER_DIR/bin/wineserver" \
+    WINEDEBUG=-all \
+        bash "$WINETRICKS_BIN" -q allfonts d3dx11_43 vcrun2019 >"$wt_log" 2>&1 || true
+
+    # Check for real failures (exclude known harmless patterns)
+    local real_errors
+    real_errors=$(grep -E 'returned status [^01]|error:|Error:' "$wt_log" \
+        | grep -v -E 'returned status 10[0-9]|wineserver:|fixme:|warn:' || true)
+
+    if [ -n "$real_errors" ]; then
+        printf "%s\n" "$real_errors"
+        print_warning "Winetricks encountered errors (this can be normal for some components)"
+    fi
+
+    rm -f "$wt_log"
+    print_success "Windows dependencies installed"
+}
+
+check_installation_status() {
+    printf "\n${BOLD}${DIM}Installation Status Check${NC}\n\n"
+
+    if [ -f "$RUNNER_DIR/bin/wine64" ]; then
+        print_success "Soda Wine runner installed"
+    else
+        print_warning "Soda Wine runner not installed"
+        return 1
+    fi
+
+    if [ -d "$WINE_PREFIX/drive_c" ]; then
+        print_success "Wine prefix initialized"
+    else
+        print_warning "Wine prefix not initialized"
+        return 1
+    fi
+
+    if find_touchdesigner_exe >/dev/null; then
+        print_success "TouchDesigner executable found"
+    else
+        print_warning "TouchDesigner executable not found"
+        return 1
+    fi
+
+    printf "\n${PRIMARY}All installation steps completed!${NC}\n"
+    return 0
+}
+
+download_touchdesigner() {
+    local td_page="https://derivative.ca/download"
+    local -a versions=()
+    local -a fallback_versions=(
+        "2025.32460"
+        "2025.30000"
+        "2024.10000"
+        "2023.12120"
+        "2022.33910"
+    )
+    local selected=""
+    local selected_version=""
+    local max_versions=10
+
+    print_info "Fetching available TouchDesigner versions..."
+    mapfile -t versions < <(
+        curl -fsSL --max-time 20 "$td_page" 2>/dev/null \
+            | grep -oE 'https://download\.derivative\.ca/TouchDesigner\.[0-9]+\.[0-9]+\.exe' \
+            | sed -E 's#^.*/TouchDesigner\.##; s#\.exe$##' \
+            | sort -Vu \
+            | sort -Vr
+    )
+
+    # Retry with wget if curl fetch did not return version links.
+    if [ "${#versions[@]}" -eq 0 ]; then
+        mapfile -t versions < <(
+            wget -qO- "$td_page" 2>/dev/null \
+                | grep -oE 'https://download\.derivative\.ca/TouchDesigner\.[0-9]+\.[0-9]+\.exe' \
+                | sed -E 's#^.*/TouchDesigner\.##; s#\.exe$##' \
+                | sort -Vu \
+                | sort -Vr
+        )
+    fi
+
+    if [ "${#versions[@]}" -eq 0 ]; then
+        print_warning "Could not fetch live version list from Derivative website"
+        versions=("${fallback_versions[@]}")
+        print_info "Using curated version list fallback"
+    fi
+
+    if [ "${#versions[@]}" -gt "$max_versions" ]; then
+        versions=("${versions[@]:0:$max_versions}")
+    fi
+
+    printf "\n${BOLD}${PRIMARY}AVAILABLE TOUCHDESIGNER VERSIONS:${NC}\n"
+    printf "${DIM}Use ↑ ↓ to navigate, Enter to select${NC}\n\n"
+
+    local cursor=0
+    local count="${#versions[@]}"
+
+    # Draw the list
+    _draw_version_list() {
+        local i
+        for i in "${!versions[@]}"; do
+            local label="${versions[$i]}"
+            [ "$i" -eq 0 ] && label="${versions[$i]} (Latest stable)"
+            if [ "$i" -eq "$cursor" ]; then
+                printf "  ${BOLD}${PRIMARY}▶  %-30s${NC}\n" "$label"
+            else
+                printf "  ${DIM}   %-30s${NC}\n" "$label"
+            fi
+        done
+    }
+
+    _draw_version_list
+
+    # Hide cursor while navigating
+    tput civis 2>/dev/null || true
+
+    while true; do
+        # Read one escape sequence
+        local key
+        IFS= read -rsn1 key
+        if [[ "$key" == $'\x1b' ]]; then
+            local seq
+            IFS= read -rsn2 -t 0.1 seq
+            key="${key}${seq}"
+        fi
+
+        case "$key" in
+            $'\x1b[A'|$'\x1b[D')  # Up or Left
+                (( cursor > 0 )) && (( cursor-- )) || true
+                ;;
+            $'\x1b[B'|$'\x1b[C')  # Down or Right
+                (( cursor < count - 1 )) && (( cursor++ )) || true
+                ;;
+            '')  # Enter
+                break
+                ;;
+        esac
+
+        # Redraw: move cursor up by count lines then redraw
+        tput cuu "$count" 2>/dev/null || printf "\033[${count}A"
+        _draw_version_list
+    done
+
+    tput cnorm 2>/dev/null || true
+    printf "\n"
+
+    selected_version="${versions[$cursor]}"
+
+    TD_URL="https://download.derivative.ca/TouchDesigner.$selected_version.exe"
+    print_success "Selected version: $selected_version"
+
+    TD_FILENAME=$(basename "$TD_URL")
+    mkdir -p "$DOWNLOAD_DIR"
+
+    if [ -f "$DOWNLOAD_DIR/$TD_FILENAME" ]; then
+        print_success "File already downloaded"
+        TD_FILEPATH="$DOWNLOAD_DIR/$TD_FILENAME"
+    else
+        print_info "Downloading $TD_FILENAME (≈2GB)..."
+        wget --show-progress -P "$DOWNLOAD_DIR" "$TD_URL" || {
+            print_error "Download failed"
+            exit 1
+        }
+        print_success "Download completed"
+        TD_FILEPATH="$DOWNLOAD_DIR/$TD_FILENAME"
+    fi
+}
+
+install_touchdesigner() {
+    require_graphical_session
+    print_info "Running TouchDesigner installer..."
+
+    local install_log
+    install_log=$(mktemp)
+
+    if PATH="$RUNNER_DIR/bin:$PATH" \
+       WINEPREFIX="$WINE_PREFIX" \
+       WINEDEBUG=-all \
+       WINESERVER_DEBUG=0 \
+           "$RUNNER_DIR/bin/wine64" "$TD_FILEPATH" >"$install_log" 2>&1; then
+        grep -v -E '^[0-9a-f]+:(fixme|warn):|wineserver:' "$install_log" | tail -n 10 || true
+        rm -f "$install_log"
+        return
+    fi
+
+    tail -n 20 "$install_log"
+
+    if grep -qiE "nodrv_CreateWindow|No GPU vendor found|DISPLAY is set correctly|Failed to create hwnd" "$install_log"; then
+        print_error "Installer GUI could not start due to display/GPU access issues"
+        print_info "Current env: DISPLAY='${DISPLAY:-unset}', WAYLAND_DISPLAY='${WAYLAND_DISPLAY:-unset}'"
+        print_info "Recommended fix on Arch/CachyOS: sudo pacman -S --needed xorg-xwayland vulkan-icd-loader vulkan-tools"
+        print_info "Then relogin and retry."
+    fi
+
+    rm -f "$install_log"
+    exit 1
+}
+
+check_graphics() {
+    print_info "Checking graphics support..."
+
+    if command -v glxinfo >/dev/null 2>&1; then
+        local glx_info
+        glx_info=$(glxinfo 2>/dev/null | grep -E "OpenGL vendor string|OpenGL renderer string|OpenGL version string")
+        if [ -n "$glx_info" ]; then
+            printf "%s\n" "$glx_info"
+            if echo "$glx_info" | grep -qi llvmpipe; then
+                print_warning "LLVMPipe detected: software rendering may reduce TouchDesigner performance."
+            fi
+        else
+            print_warning "glxinfo did not return OpenGL information."
+        fi
+    else
+        print_warning "glxinfo not installed. Install mesa-utils or equivalent to verify OpenGL support."
+    fi
+
+    if command -v vulkaninfo >/dev/null 2>&1; then
+        if vulkaninfo > /dev/null 2>&1; then
+            print_success "Vulkan support detected"
+        else
+            print_warning "Vulkan support is unavailable or not configured."
+        fi
+    else
+        print_warning "vulkaninfo not installed. Install vulkan-tools to verify Vulkan support."
+    fi
+}
+
+find_touchdesigner_exe() {
+    find "$WINE_PREFIX/drive_c" -type f -iname 'TouchDesigner.exe' 2>/dev/null | head -n 1
+}
+
+register_toe_mimetype() {
+    local mime_dir="$HOME/.local/share/mime/packages"
+    mkdir -p "$mime_dir"
+
+    cat > "$mime_dir/touchdesigner.xml" << XML
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-touchdesigner">
+    <comment>TouchDesigner project file</comment>
+    <glob pattern="*.toe"/>
+  </mime-type>
+</mime-info>
+XML
+
+    if command -v update-mime-database >/dev/null 2>&1; then
+        update-mime-database "$HOME/.local/share/mime" >/dev/null 2>&1 || true
+    fi
+}
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# POST-INSTALLATION FEATURES
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+create_launcher_script() {
+    local runner_path="$RUNNER_DIR"
+    local prefix_path="$WINE_PREFIX"
+
+    mkdir -p "$LAUNCHER_DIR"
+
+    cat > "$LAUNCHER_PATH" << LAUNCHER
+#!/bin/bash
+RUNNER_DIR="${runner_path}"
+WINE_PREFIX="${prefix_path}"
+
+find_touchdesigner_exe() {
+    find "\$WINE_PREFIX/drive_c" -type f -iname 'TouchDesigner.exe' 2>/dev/null | head -n 1
+}
+
+TOUCHDESIGNER_EXE="\$(find_touchdesigner_exe)"
+
+if [ -z "\$TOUCHDESIGNER_EXE" ]; then
+    echo "Error: TouchDesigner.exe not found in Wine prefix."
+    exit 1
+fi
+
+# Handle optional .toe file argument
+EXTRA_ARGS=()
+if [ -n "\$1" ]; then
+    INPUT_PATH="\$1"
+    # Decode file:// URI if passed by desktop environment
+    if [[ "\$INPUT_PATH" == file://* ]]; then
+        INPUT_PATH="\${INPUT_PATH#file://}"
+        INPUT_PATH="\$(python3 -c "import sys, urllib.parse; print(urllib.parse.unquote(sys.argv[1]))" "\$INPUT_PATH" 2>/dev/null || echo "\$INPUT_PATH")"
+    fi
+    # Map Linux path to Wine Z: drive
+    WINE_PATH="z:\${INPUT_PATH//\//\\\\}"
+    EXTRA_ARGS=("\$WINE_PATH")
+fi
+
+PATH="\$RUNNER_DIR/bin:\$PATH" \\
+WINEPREFIX="\$WINE_PREFIX" \\
+    "\$RUNNER_DIR/bin/wine64" "\$TOUCHDESIGNER_EXE" "\${EXTRA_ARGS[@]}" &
+LAUNCHER
+    chmod +x "$LAUNCHER_PATH"
+}
+
+install_optional_font_fix() {
+    local src
+    local dest="$TD_BASE_DIR/wine_ui_fixes.tox"
+
+    mkdir -p "$TD_BASE_DIR"
+
+    for src in "$SCRIPT_DIR/wine_ui_fixes.tox" "$SCRIPT_DIR/Assets/wine_ui_fixes.tox"; do
+        if [ -f "$src" ]; then
+            cp -f "$src" "$dest"
+            return 0
+        fi
+    done
+
+    if curl -fsSL --max-time 20 "$REPO_ASSETS_BASE_URL/wine_ui_fixes.tox" -o "$dest" 2>/dev/null; then
+        return 0
+    fi
+
+    if wget -q -O "$dest" "$REPO_ASSETS_BASE_URL/wine_ui_fixes.tox" 2>/dev/null; then
+        return 0
+    fi
+
+    rm -f "$dest"
+    return 1
+}
+
+install_optional_icon() {
+    local src
+    TD_ICON_PATH="touchdesigner"
+
+    mkdir -p "$TD_BASE_DIR"
+
+    for src in \
+        "$SCRIPT_DIR/TouchDesigner.png" \
+        "$SCRIPT_DIR/Assets/TouchDesigner.png"; do
+        if [ -f "$src" ]; then
+            cp -f "$src" "$TD_BASE_DIR/TouchDesigner.png"
+            TD_ICON_PATH="$TD_BASE_DIR/TouchDesigner.png"
+            return 0
+        fi
+    done
+
+    if curl -fsSL --max-time 20 "$REPO_ASSETS_BASE_URL/TouchDesigner.png" -o "$TD_BASE_DIR/TouchDesigner.png" 2>/dev/null; then
+        TD_ICON_PATH="$TD_BASE_DIR/TouchDesigner.png"
+        return 0
+    fi
+
+    if wget -q -O "$TD_BASE_DIR/TouchDesigner.png" "$REPO_ASSETS_BASE_URL/TouchDesigner.png" 2>/dev/null; then
+        TD_ICON_PATH="$TD_BASE_DIR/TouchDesigner.png"
+        return 0
+    fi
+
+    for src in \
+        "$SCRIPT_DIR/_TouchDesigner.png.ico" \
+        "$SCRIPT_DIR/Assets/_TouchDesigner.png.ico"; do
+        if [ -f "$src" ]; then
+            cp -f "$src" "$TD_BASE_DIR/_TouchDesigner.png.ico"
+            TD_ICON_PATH="$TD_BASE_DIR/_TouchDesigner.png.ico"
+            return 0
+        fi
+    done
+
+    if curl -fsSL --max-time 20 "$REPO_ASSETS_BASE_URL/_TouchDesigner.png.ico" -o "$TD_BASE_DIR/_TouchDesigner.png.ico" 2>/dev/null; then
+        TD_ICON_PATH="$TD_BASE_DIR/_TouchDesigner.png.ico"
+        return 0
+    fi
+
+    if wget -q -O "$TD_BASE_DIR/_TouchDesigner.png.ico" "$REPO_ASSETS_BASE_URL/_TouchDesigner.png.ico" 2>/dev/null; then
+        TD_ICON_PATH="$TD_BASE_DIR/_TouchDesigner.png.ico"
+        return 0
+    fi
+
+    rm -f "$TD_BASE_DIR/TouchDesigner.png" "$TD_BASE_DIR/_TouchDesigner.png.ico"
+    return 1
+}
+
+create_desktop_shortcut() {
+    if [[ ! $CREATE_SHORTCUT =~ ^[Yy]$ ]]; then
+        return
+    fi
+
+    mkdir -p "$DESKTOP_DIR"
+
+    cat > "$DESKTOP_DIR/TouchDesigner.desktop" << DESKTOP
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=TouchDesigner
+Comment=Real-time Visual Programming Environment
+Exec=$LAUNCHER_PATH
+Icon=$TD_ICON_PATH
+Terminal=false
+Categories=Graphics;Development;
+DESKTOP
+
+    chmod +x "$DESKTOP_DIR/TouchDesigner.desktop"
+    print_success "Desktop shortcut created"
+}
+
+associate_toe_files() {
+    if [[ ! $ASSOC_FILES =~ ^[Yy]$ ]]; then
+        return
+    fi
+
+    mkdir -p "$APPLICATIONS_DIR"
+
+    cat > "$APPLICATIONS_DIR/touchdesigner.desktop" << DESKTOP
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=TouchDesigner
+Exec=$LAUNCHER_PATH z:%u
+Icon=$TD_ICON_PATH
+MimeType=application/x-touchdesigner;
+Categories=Graphics;Development;
+DESKTOP
+
+    register_toe_mimetype
+
+    if command -v xdg-mime >/dev/null 2>&1; then
+        xdg-mime default touchdesigner.desktop application/x-touchdesigner 2>/dev/null || true
+    fi
+
+    print_success ".toe files associated"
+}
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# CLEANUP & UNINSTALL
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+uninstall_touchdesigner() {
+    print_warning "This will completely remove TouchDesigner and all related files"
+    read -p "Are you sure? (y/N): " -n 1 -r
+    printf "\n"
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        print_info "Uninstall cancelled"
+        return
+    fi
+
+    print_info "Removing Wine prefix and runner..."
+    if [ -d "$TD_BASE_DIR" ]; then
+        rm -rf "$TD_BASE_DIR"
+        print_success "Wine prefix and runner removed"
+    else
+        print_info "Base directory not found (already removed?)"
+    fi
+
+    print_info "Removing launcher script..."
+    if [ -f "$LAUNCHER_PATH" ]; then
+        rm -f "$LAUNCHER_PATH"
+        print_success "Launcher script removed"
+    fi
+    if [ -f "$HOME/launch-touchdesigner.sh" ]; then
+        rm -f "$HOME/launch-touchdesigner.sh"
+        print_success "Launcher script removed"
+    fi
+
+    print_info "Removing desktop shortcut..."
+    if [ -f "$DESKTOP_DIR/TouchDesigner.desktop" ]; then
+        rm -f "$DESKTOP_DIR/TouchDesigner.desktop"
+        print_success "Desktop shortcut removed"
+    fi
+
+    print_info "Removing file association..."
+    if [ -f "$APPLICATIONS_DIR/touchdesigner.desktop" ]; then
+        rm -f "$APPLICATIONS_DIR/touchdesigner.desktop"
+        print_success "File association removed"
+    fi
+
+    local mime_dir="$HOME/.local/share/mime/packages"
+    if [ -f "$mime_dir/touchdesigner.xml" ]; then
+        rm -f "$mime_dir/touchdesigner.xml"
+        if command -v update-mime-database >/dev/null 2>&1; then
+            update-mime-database "$HOME/.local/share/mime" >/dev/null 2>&1 || true
+        fi
+        print_success "MIME type removed"
+    fi
+
+    printf "\n${DIM}────────────────────────────────────────────${NC}\n"
+    printf "${PRIMARY}Uninstall Complete${NC}\n"
+    printf "${SECONDARY}TouchDesigner has been completely removed.${NC}\n"
+    printf "${DIM}Iswad${NC}\n"
+    printf "${DIM}────────────────────────────────────────────${NC}\n\n"
+}
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# MAIN EXECUTION
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+main() {
+    show_main_menu
+
+    case $choice in
+        1)
+            print_banner
+            print_info "Starting TouchDesigner installation..."
+            printf "\n"
+
+            # Step 1: System packages
+            print_info "Step 1/6: Installing system packages..."
+            detect_package_manager
+            [[ "$PKG_MANAGER" == "unknown" ]] && { print_error "Unsupported distribution"; exit 1; }
+            print_success "Detected: $PKG_DISTRO ($PKG_MANAGER)"
+            if ! command -v sudo >/dev/null 2>&1; then
+                print_error "sudo is required to install system packages"
+                exit 1
+            fi
+            install_packages
+            check_graphics
+            [ "$FAST_MODE" != true ] && sleep 0.3
+
+            # Step 2: Soda Wine runner
+            if [ ! -f "$RUNNER_DIR/bin/wine64" ]; then
+                print_info "Step 2/6: Downloading Soda Wine runner..."
+                download_soda_runner
+            else
+                print_success "Step 2/6: Soda Wine runner already present, skipping..."
+            fi
+            [ "$FAST_MODE" != true ] && sleep 0.3
+
+            # Step 3: Wine prefix
+            if [ ! -d "$WINE_PREFIX/drive_c" ]; then
+                print_info "Step 3/6: Initializing Wine prefix..."
+                setup_wine_prefix
+            else
+                print_success "Step 3/6: Wine prefix already initialized, skipping..."
+            fi
+            [ "$FAST_MODE" != true ] && sleep 0.3
+
+            # Step 4: Windows dependencies
+            print_info "Step 4/6: Installing Windows dependencies..."
+            download_winetricks
+            install_dxvk
+            install_windows_deps
+            [ "$FAST_MODE" != true ] && sleep 0.3
+
+            # Step 5: Download TouchDesigner
+            print_info "Step 5/6: Downloading TouchDesigner..."
+            download_touchdesigner
+            [ "$FAST_MODE" != true ] && sleep 0.3
+
+            # Step 6: Install TouchDesigner
+            print_info "Step 6/6: Running TouchDesigner installer..."
+            install_touchdesigner
+
+            # Create launcher
+            print_info "Creating launcher script..."
+            create_launcher_script
+            print_success "Launcher created: ~/.local/bin/launch-touchdesigner.sh"
+
+            install_optional_icon || true
+            if [ "$TD_ICON_PATH" != "touchdesigner" ]; then
+                print_info "Icon installed: $TD_ICON_PATH"
+            fi
+            [ "$FAST_MODE" != true ] && sleep 0.3
+
+            read -p "Create desktop shortcut? (y/n): " -n 1 -r CREATE_SHORTCUT
+            printf "\n"
+            create_desktop_shortcut
+
+            read -p "Associate .toe files with TouchDesigner? (y/n): " -n 1 -r ASSOC_FILES
+            printf "\n"
+            associate_toe_files
+
+            if install_optional_font_fix; then
+                print_info "Font fix available:"
+                print_info "$TD_BASE_DIR/wine_ui_fixes.tox"
+                print_info "Import it in your TouchDesigner project if UI text is missing"
+            fi
+
+            printf "\n${DIM}────────────────────────────────────────────${NC}\n"
+            printf "${PRIMARY}Installation Complete${NC}\n"
+            printf "${SECONDARY}TouchDesigner is ready to use!${NC}\n"
+            printf "\n"
+            print_success "Launch TouchDesigner:"
+            print_info "$LAUNCHER_PATH"
+            printf "\n"
+            printf "${SECONDARY}Iswad${NC}\n"
+            printf "${DIM}────────────────────────────────────────────${NC}\n\n"
+            ;;
+        2)
+            uninstall_touchdesigner
+            ;;
+        0)
+            print_info "Exiting..."
+            exit 0
+            ;;
+        *)
+            print_error "Invalid option"
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

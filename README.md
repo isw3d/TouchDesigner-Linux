@@ -99,7 +99,7 @@ Some UI elements may appear blank due to font rendering issues.
 ### Solution
 
 1. Add `wine_ui_fixes.tox` to your project.
-	- [Download `wine_ui_fixes.tox` directly](https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/wine_ui_fixes.tox)
+	- [Download `wine_ui_fixes.tox` directly](https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/Assets/wine_ui_fixes.tox)
 	- Original post: [c0deous on Derivative](https://derivative.ca/community-post/asset/minor-ui-fixes-touchdesigner-wine/73421)
 2. Click **Fix Now**.
 
@@ -244,15 +244,6 @@ update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 - Wayland is strongly recommended (X11 may cause launch issues or black screen)
 - Performance may vary depending on hardware and driver setup.
 - Overall, my experience was smoother than on Windows, with better performance and a much cooler-running machine (gaming laptop) due to Linux optimizations.
-
-⚠️ Project Update:
->
->The planned automated install script is currently suspended.
->
->The Linux gaming and compatibility landscape is shifting rapidly with the transition from Wine-GE to UMU and the new Proton 10 standards. To ensure long-term stability and avoid releasing an obsolete tool, I am putting the custom automation on hold until the UMU ecosystem matures for professional creative software.
->
->For now, please stick to the Bottles manual setup for the most reliable experience.
->
 
 Built with care.
 

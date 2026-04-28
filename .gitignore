@@ -1,0 +1,38 @@
+# Logs
+*.log
+
+# Temp / cache
+*.tmp
+*.temp
+*.cache
+
+# Archives
+*.tar
+*.tar.gz
+*.tar.xz
+*.zip
+*.7z
+
+# Binaries
+*.exe
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local test artifacts
+Downloads/
+tmp/
+
+# Safety (Wine / local env)
+.local/
