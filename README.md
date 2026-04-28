@@ -2,6 +2,19 @@
 
 ![Screenshot](Screenshots/0.png)
 
+
+## Quick install
+
+```bash
+curl -sSL https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/install.sh | bash
+```
+
+⚠️ This script modifies your system and installs Wine + dependencies.
+Run only if you trust the source.
+
+
+
+
 TouchDesigner is not officially supported on Linux, but it can run very well through Bottles **(Wayland)**.
 
 This guide gives a complete, working setup.
