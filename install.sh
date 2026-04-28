@@ -61,6 +61,7 @@ TD_BASE_DIR="$HOME/.local/share/touchdesigner-linux"
 RUNNER_DIR="$TD_BASE_DIR/runner"
 WINE_PREFIX="$TD_BASE_DIR/prefix"
 WINETRICKS_BIN="$TD_BASE_DIR/winetricks"
+LOG_DIR="$TD_BASE_DIR/logs"
 DOWNLOAD_DIR="$HOME/Downloads"
 DESKTOP_DIR="$HOME/Desktop"
 APPLICATIONS_DIR="$HOME/.local/share/applications"
@@ -94,10 +95,13 @@ ALLOW_HEADLESS_INSTALL=${ALLOW_HEADLESS_INSTALL:-false}
 INSTALL_CHOICE=${INSTALL_CHOICE:-1}
 TD_VERSION=${TD_VERSION:-latest}
 FORCE_UNINSTALL=${FORCE_UNINSTALL:-false}
+DEBUG=${DEBUG:-false}
+TRACE=${TRACE:-false}
 ENABLE_DXVK=${ENABLE_DXVK:-Y}
 CREATE_SHORTCUT=${CREATE_SHORTCUT:-N}
 ASSOC_FILES=${ASSOC_FILES:-N}
 TD_ICON_PATH="touchdesigner"
+DEBUG_LOG_FILE=""
 
 if [ "$NON_INTERACTIVE" = true ]; then
     [ "$CREATE_SHORTCUT" = "N" ] && CREATE_SHORTCUT="Y"
@@ -153,6 +157,45 @@ print_info() {
 
 print_warning() {
     printf "${DIM}•${NC} %s\n" "$1"
+}
+
+prompt_yes_no() {
+    local prompt="$1"
+    local default_choice="$2"
+
+    while true; do
+        if [ "$default_choice" = "Y" ]; then
+            printf "%s [Y/n]: " "$prompt" >&2
+        else
+            printf "%s [y/N]: " "$prompt" >&2
+        fi
+
+        local answer
+        if ! IFS= read -r answer <"$INTERACTIVE_INPUT"; then
+            answer=""
+        fi
+
+        answer=$(printf "%s" "$answer" | tr -d '[:space:]')
+
+        if [ -z "$answer" ]; then
+            PROMPT_YES_NO_RESULT="$default_choice"
+            return 0
+        fi
+
+        case "$answer" in
+            y|Y|yes|YES)
+                PROMPT_YES_NO_RESULT="Y"
+                return 0
+                ;;
+            n|N|no|NO)
+                PROMPT_YES_NO_RESULT="N"
+                return 0
+                ;;
+            *)
+                printf "${DIM}•${NC} Please answer y or n\n" >&2
+                ;;
+        esac
+    done
 }
 
 ensure_interactive_input() {
@@ -216,6 +259,27 @@ safe_rm_rf() {
 
     rm -rf -- "$target"
 }
+
+setup_debug_mode() {
+    if [ "$DEBUG" != true ] && [ "$TRACE" != true ]; then
+        return
+    fi
+
+    mkdir -p "$LOG_DIR"
+    DEBUG_LOG_FILE="$LOG_DIR/install-$(date +%Y%m%d-%H%M%S).log"
+
+    # Mirror all output to a persistent log file for issue reports.
+    exec > >(tee -a "$DEBUG_LOG_FILE") 2>&1
+
+    print_warning "Debug logging enabled"
+    print_info "Debug log: $DEBUG_LOG_FILE"
+
+    if [ "$TRACE" = true ]; then
+        set -x
+    fi
+}
+
+setup_debug_mode
 
 require_graphical_session() {
     if [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
@@ -1237,9 +1301,8 @@ uninstall_touchdesigner() {
         fi
         REPLY="Y"
     else
-        printf "Are you sure? (y/N): "
-        IFS= read -r -n 1 REPLY <"$INTERACTIVE_INPUT" || REPLY=""
-        printf "\n"
+        prompt_yes_no "Are you sure?" "Y"
+        REPLY="$PROMPT_YES_NO_RESULT"
     fi
 
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -1350,8 +1413,8 @@ main() {
             if [ -d "$WINE_PREFIX/drive_c" ]; then
                 print_info "Step 4/6: Installing Windows dependencies..."
                 download_winetricks
-                install_dxvk
                 install_windows_deps
+                install_dxvk
             else
                 print_warning "Step 4/6: Skipped (Wine prefix not initialized)"
             fi
@@ -1385,9 +1448,8 @@ main() {
                 if [ "$NON_INTERACTIVE" = true ]; then
                     print_info "Non-interactive mode: CREATE_SHORTCUT=$CREATE_SHORTCUT"
                 else
-                    printf "Create desktop shortcut? (y/n): "
-                    IFS= read -r -n 1 CREATE_SHORTCUT <"$INTERACTIVE_INPUT" || CREATE_SHORTCUT=""
-                    printf "\n"
+                    prompt_yes_no "Create desktop shortcut?" "N"
+                    CREATE_SHORTCUT="$PROMPT_YES_NO_RESULT"
                 fi
                 create_desktop_shortcut
                 create_applications_shortcut
@@ -1395,9 +1457,8 @@ main() {
                 if [ "$NON_INTERACTIVE" = true ]; then
                     print_info "Non-interactive mode: ASSOC_FILES=$ASSOC_FILES"
                 else
-                    printf "Associate .toe files with TouchDesigner? (y/n): "
-                    IFS= read -r -n 1 ASSOC_FILES <"$INTERACTIVE_INPUT" || ASSOC_FILES=""
-                    printf "\n"
+                    prompt_yes_no "Associate .toe files with TouchDesigner?" "N"
+                    ASSOC_FILES="$PROMPT_YES_NO_RESULT"
                 fi
                 associate_toe_files
             else
@@ -1424,6 +1485,9 @@ main() {
                 print_info "$LAUNCHER_PATH"
             else
                 print_info "When you have a graphical session, re-run the installer and choose Full install."
+            fi
+            if [ -n "$DEBUG_LOG_FILE" ]; then
+                print_info "Debug log saved to: $DEBUG_LOG_FILE"
             fi
             printf "\n"
             printf "${SECONDARY}Iswad${NC}\n"
