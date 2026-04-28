@@ -22,6 +22,38 @@ if [ "$(uname)" != "Linux" ]; then
     exit 1
 fi
 
+require_command() {
+    if ! command -v "$1" >/dev/null 2>&1; then
+        printf "${SECONDARY}▸${NC} Missing required command: %s\n" "$1"
+        exit 1
+    fi
+}
+
+require_any_command() {
+    local cmd
+    for cmd in "$@"; do
+        if command -v "$cmd" >/dev/null 2>&1; then
+            return 0
+        fi
+    done
+
+    printf "${SECONDARY}▸${NC} Missing required command (need one of): %s\n" "$*"
+    exit 1
+}
+
+check_prerequisites() {
+    require_command grep
+    require_command sed
+    require_command tar
+    require_command tr
+    require_command sort
+    require_command mktemp
+    require_command find
+    require_any_command curl wget
+}
+
+check_prerequisites
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Configuration
@@ -39,6 +71,8 @@ SODA_URL="https://github.com/bottlesdevs/wine/releases/download/soda-9.0-1/soda-
 DXVK_VERSION="2.4"
 DXVK_URL="https://github.com/doitsujin/dxvk/releases/download/v${DXVK_VERSION}/dxvk-${DXVK_VERSION}.tar.gz"
 REPO_ASSETS_BASE_URL="${REPO_ASSETS_BASE_URL:-https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/Assets}"
+SODA_SHA256="${SODA_SHA256:-}"
+DXVK_SHA256="${DXVK_SHA256:-}"
 
 # Get terminal width for horizontal rules
 TERMINAL_WIDTH=$(tput cols 2>/dev/null)
@@ -55,10 +89,20 @@ fi
 
 # Configuration variables
 FAST_MODE=${FAST_MODE:-false}
-ENABLE_DXVK=Y
-CREATE_SHORTCUT=N
-ASSOC_FILES=N
+NON_INTERACTIVE=${NON_INTERACTIVE:-false}
+ALLOW_HEADLESS_INSTALL=${ALLOW_HEADLESS_INSTALL:-false}
+INSTALL_CHOICE=${INSTALL_CHOICE:-1}
+TD_VERSION=${TD_VERSION:-latest}
+FORCE_UNINSTALL=${FORCE_UNINSTALL:-false}
+ENABLE_DXVK=${ENABLE_DXVK:-Y}
+CREATE_SHORTCUT=${CREATE_SHORTCUT:-N}
+ASSOC_FILES=${ASSOC_FILES:-N}
 TD_ICON_PATH="touchdesigner"
+
+if [ "$NON_INTERACTIVE" = true ]; then
+    [ "$CREATE_SHORTCUT" = "N" ] && CREATE_SHORTCUT="Y"
+    [ "$ASSOC_FILES" = "N" ] && ASSOC_FILES="Y"
+fi
 
 # Utility functions for Iswad aesthetic
 
@@ -112,6 +156,10 @@ print_warning() {
 }
 
 ensure_interactive_input() {
+    if [ "$NON_INTERACTIVE" = true ]; then
+        return
+    fi
+
     if [ -n "$INTERACTIVE_INPUT" ]; then
         return
     fi
@@ -121,9 +169,63 @@ ensure_interactive_input() {
     exit 1
 }
 
+check_network_access() {
+    local url="$1"
+
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSI --connect-timeout 5 --max-time 10 "$url" >/dev/null 2>&1 && return 0
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q --spider --timeout=10 "$url" >/dev/null 2>&1 && return 0
+    fi
+
+    print_warning "Network check failed for $url (continuing anyway)"
+    return 1
+}
+
+verify_checksum() {
+    local file_path="$1"
+    local expected_hash="$2"
+    local label="$3"
+
+    if [ -z "$expected_hash" ]; then
+        print_warning "No checksum configured for $label (skipping verification)"
+        return 0
+    fi
+
+    if ! command -v sha256sum >/dev/null 2>&1; then
+        print_warning "sha256sum not found, cannot verify $label"
+        return 0
+    fi
+
+    if printf "%s  %s\n" "$expected_hash" "$file_path" | sha256sum -c - >/dev/null 2>&1; then
+        print_success "$label checksum verified"
+        return 0
+    fi
+
+    print_error "$label checksum verification failed"
+    return 1
+}
+
+safe_rm_rf() {
+    local target="$1"
+
+    if [ -z "$target" ] || [ "$target" = "/" ]; then
+        print_error "Refusing to delete unsafe directory: '$target'"
+        exit 1
+    fi
+
+    rm -rf -- "$target"
+}
+
 require_graphical_session() {
     if [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
         return
+    fi
+
+    if [ "$ALLOW_HEADLESS_INSTALL" = true ]; then
+        print_warning "No graphical session detected"
+        print_info "Continuing in headless preparation mode (GUI-only steps will be skipped)."
+        return 1
     fi
 
     print_error "No graphical session detected"
@@ -156,6 +258,13 @@ run_and_tail() {
 
 show_main_menu() {
     ensure_interactive_input
+
+    if [ "$NON_INTERACTIVE" = true ]; then
+        choice=$(printf "%s" "$INSTALL_CHOICE" | tr -d '[:space:]')
+        print_info "Non-interactive mode enabled (INSTALL_CHOICE=$choice)"
+        return
+    fi
+
     detect_package_manager
     print_banner
 
@@ -429,9 +538,15 @@ download_soda_runner() {
     print_info "Downloading Soda Wine 9.0-1 runner (~300MB)..."
     local tarball="$TD_BASE_DIR/soda-runner.tar.xz"
     mkdir -p "$TD_BASE_DIR"
+    check_network_access "$SODA_URL" || true
 
     wget --show-progress -O "$tarball" "$SODA_URL" || {
         print_error "Failed to download Soda Wine runner"
+        rm -f "$tarball"
+        exit 1
+    }
+
+    verify_checksum "$tarball" "$SODA_SHA256" "Soda Wine runner" || {
         rm -f "$tarball"
         exit 1
     }
@@ -458,7 +573,10 @@ setup_wine_prefix() {
         return
     fi
 
-    require_graphical_session
+    if ! require_graphical_session; then
+        print_warning "Skipping Wine prefix initialization (requires graphical session)"
+        return
+    fi
 
     print_info "Initializing Wine prefix (win64)..."
     mkdir -p "$WINE_PREFIX"
@@ -521,8 +639,14 @@ install_dxvk() {
 
     print_info "Downloading DXVK $DXVK_VERSION..."
     local dxvk_tarball="$TD_BASE_DIR/dxvk.tar.gz"
+    check_network_access "$DXVK_URL" || true
     wget -O "$dxvk_tarball" "$DXVK_URL" || {
         print_warning "Failed to download DXVK, skipping"
+        rm -f "$dxvk_tarball"
+        return
+    }
+
+    verify_checksum "$dxvk_tarball" "$DXVK_SHA256" "DXVK archive" || {
         rm -f "$dxvk_tarball"
         return
     }
@@ -671,6 +795,7 @@ download_touchdesigner() {
     td_html=$(mktemp)
 
     print_info "Fetching available TouchDesigner versions..."
+    check_network_access "$td_page" || true
     print_info "Trying Derivative website (curl, timeout 20s)..."
     curl -fsSL \
         --connect-timeout 8 \
@@ -712,62 +837,85 @@ download_touchdesigner() {
         versions=("${versions[@]:0:$max_versions}")
     fi
 
-    printf "\n${BOLD}${PRIMARY}AVAILABLE TOUCHDESIGNER VERSIONS:${NC}\n"
-    printf "${DIM}Use ↑ ↓ to navigate, Enter to select${NC}\n\n"
-
-    local cursor=0
-    local count="${#versions[@]}"
-
-    # Draw the list
-    _draw_version_list() {
-        local i
-        for i in "${!versions[@]}"; do
-            local label="${versions[$i]}"
-            [ "$i" -eq 0 ] && label="${versions[$i]} (Latest stable)"
-            if [ "$i" -eq "$cursor" ]; then
-                printf "  ${BOLD}${PRIMARY}▶  %-30s${NC}\n" "$label"
-            else
-                printf "  ${DIM}   %-30s${NC}\n" "$label"
+    if [ "$NON_INTERACTIVE" = true ]; then
+        if [ -n "$TD_VERSION" ] && [ "$TD_VERSION" != "latest" ]; then
+            local found_version=false
+            local v
+            for v in "${versions[@]}"; do
+                if [ "$v" = "$TD_VERSION" ]; then
+                    selected_version="$TD_VERSION"
+                    found_version=true
+                    break
+                fi
+            done
+            if [ "$found_version" = false ]; then
+                print_warning "Requested TD_VERSION '$TD_VERSION' not found, using latest available"
             fi
-        done
-    }
-
-    _draw_version_list
-
-    # Hide cursor while navigating
-    tput civis 2>/dev/null || true
-
-    while true; do
-        # Read one escape sequence
-        local key
-        IFS= read -rsn1 key <"$INTERACTIVE_INPUT"
-        if [[ "$key" == $'\x1b' ]]; then
-            local seq
-            IFS= read -rsn2 -t 0.1 seq <"$INTERACTIVE_INPUT"
-            key="${key}${seq}"
         fi
 
-        case "$key" in
-            $'\x1b[A'|$'\x1b[D')  # Up or Left
-                (( cursor > 0 )) && (( cursor-- )) || true
-                ;;
-            $'\x1b[B'|$'\x1b[C')  # Down or Right
-                (( cursor < count - 1 )) && (( cursor++ )) || true
-                ;;
-            '')  # Enter
-                break
-                ;;
-        esac
+        if [ -z "$selected_version" ]; then
+            selected_version="${versions[0]}"
+        fi
 
-        # Redraw: move cursor up by count lines then redraw
-        tput cuu "$count" 2>/dev/null || printf "\033[${count}A"
+        print_info "Non-interactive mode: selected version $selected_version"
+    else
+        printf "\n${BOLD}${PRIMARY}AVAILABLE TOUCHDESIGNER VERSIONS:${NC}\n"
+        printf "${DIM}Use ↑ ↓ to navigate, Enter to select${NC}\n\n"
+
+        local cursor=0
+        local count="${#versions[@]}"
+
+        # Draw the list
+        _draw_version_list() {
+            local i
+            for i in "${!versions[@]}"; do
+                local label="${versions[$i]}"
+                [ "$i" -eq 0 ] && label="${versions[$i]} (Latest stable)"
+                if [ "$i" -eq "$cursor" ]; then
+                    printf "  ${BOLD}${PRIMARY}▶  %-30s${NC}\n" "$label"
+                else
+                    printf "  ${DIM}   %-30s${NC}\n" "$label"
+                fi
+            done
+        }
+
         _draw_version_list
-    done
 
-    tput cnorm 2>/dev/null || true
-    printf "\n"
+        # Hide cursor while navigating
+        tput civis 2>/dev/null || true
 
-    selected_version="${versions[$cursor]}"
+        while true; do
+            # Read one escape sequence
+            local key
+            IFS= read -rsn1 key <"$INTERACTIVE_INPUT"
+            if [[ "$key" == $'\x1b' ]]; then
+                local seq
+                IFS= read -rsn2 -t 0.1 seq <"$INTERACTIVE_INPUT"
+                key="${key}${seq}"
+            fi
+
+            case "$key" in
+                $'\x1b[A'|$'\x1b[D')  # Up or Left
+                    (( cursor > 0 )) && (( cursor-- )) || true
+                    ;;
+                $'\x1b[B'|$'\x1b[C')  # Down or Right
+                    (( cursor < count - 1 )) && (( cursor++ )) || true
+                    ;;
+                '')  # Enter
+                    break
+                    ;;
+            esac
+
+            # Redraw: move cursor up by count lines then redraw
+            tput cuu "$count" 2>/dev/null || printf "\033[${count}A"
+            _draw_version_list
+        done
+
+        tput cnorm 2>/dev/null || true
+        printf "\n"
+
+        selected_version="${versions[$cursor]}"
+    fi
 
     TD_URL="https://download.derivative.ca/TouchDesigner.$selected_version.exe"
     print_success "Selected version: $selected_version"
@@ -790,7 +938,11 @@ download_touchdesigner() {
 }
 
 install_touchdesigner() {
-    require_graphical_session
+    if ! require_graphical_session; then
+        print_warning "Skipping TouchDesigner installer launch (requires graphical session)"
+        return
+    fi
+
     print_info "Running TouchDesigner installer..."
 
     local install_log
@@ -1077,9 +1229,19 @@ DESKTOP
 uninstall_touchdesigner() {
     ensure_interactive_input
     print_warning "This will completely remove TouchDesigner and all related files"
-    printf "Are you sure? (y/N): "
-    IFS= read -r -n 1 REPLY <"$INTERACTIVE_INPUT" || REPLY=""
-    printf "\n"
+
+    if [ "$NON_INTERACTIVE" = true ]; then
+        if [ "$FORCE_UNINSTALL" != true ]; then
+            print_error "Refusing uninstall in non-interactive mode without FORCE_UNINSTALL=true"
+            return
+        fi
+        REPLY="Y"
+    else
+        printf "Are you sure? (y/N): "
+        IFS= read -r -n 1 REPLY <"$INTERACTIVE_INPUT" || REPLY=""
+        printf "\n"
+    fi
+
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         print_info "Uninstall cancelled"
         return
@@ -1087,7 +1249,7 @@ uninstall_touchdesigner() {
 
     print_info "Removing Wine prefix and runner..."
     if [ -d "$TD_BASE_DIR" ]; then
-        rm -rf "$TD_BASE_DIR"
+        safe_rm_rf "$TD_BASE_DIR"
         print_success "Wine prefix and runner removed"
     else
         print_info "Base directory not found (already removed?)"
@@ -1144,6 +1306,11 @@ main() {
 
     case $choice in
         1)
+            local headless_mode=false
+            if [ "$ALLOW_HEADLESS_INSTALL" = true ] && [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
+                headless_mode=true
+            fi
+
             print_banner
             print_info "Starting TouchDesigner installation..."
             printf "\n"
@@ -1180,10 +1347,14 @@ main() {
             [ "$FAST_MODE" != true ] && sleep 0.3
 
             # Step 4: Windows dependencies
-            print_info "Step 4/6: Installing Windows dependencies..."
-            download_winetricks
-            install_dxvk
-            install_windows_deps
+            if [ -d "$WINE_PREFIX/drive_c" ]; then
+                print_info "Step 4/6: Installing Windows dependencies..."
+                download_winetricks
+                install_dxvk
+                install_windows_deps
+            else
+                print_warning "Step 4/6: Skipped (Wine prefix not initialized)"
+            fi
             [ "$FAST_MODE" != true ] && sleep 0.3
 
             # Step 5: Download TouchDesigner
@@ -1192,30 +1363,46 @@ main() {
             [ "$FAST_MODE" != true ] && sleep 0.3
 
             # Step 6: Install TouchDesigner
-            print_info "Step 6/6: Running TouchDesigner installer..."
-            install_touchdesigner
-
-            # Create launcher
-            print_info "Creating launcher script..."
-            create_launcher_script
-            print_success "Launcher created: ~/.local/bin/launch-touchdesigner.sh"
-
-            install_optional_icon || true
-            if [ "$TD_ICON_PATH" != "touchdesigner" ]; then
-                print_info "Icon installed: $TD_ICON_PATH"
+            if [ -d "$WINE_PREFIX/drive_c" ]; then
+                print_info "Step 6/6: Running TouchDesigner installer..."
+                install_touchdesigner
+            else
+                print_warning "Step 6/6: Skipped (requires graphical session)"
             fi
-            [ "$FAST_MODE" != true ] && sleep 0.3
 
-            printf "Create desktop shortcut? (y/n): "
-            IFS= read -r -n 1 CREATE_SHORTCUT <"$INTERACTIVE_INPUT" || CREATE_SHORTCUT=""
-            printf "\n"
-            create_desktop_shortcut
-            create_applications_shortcut
+            if find_touchdesigner_exe >/dev/null; then
+                # Create launcher
+                print_info "Creating launcher script..."
+                create_launcher_script
+                print_success "Launcher created: ~/.local/bin/launch-touchdesigner.sh"
 
-            printf "Associate .toe files with TouchDesigner? (y/n): "
-            IFS= read -r -n 1 ASSOC_FILES <"$INTERACTIVE_INPUT" || ASSOC_FILES=""
-            printf "\n"
-            associate_toe_files
+                install_optional_icon || true
+                if [ "$TD_ICON_PATH" != "touchdesigner" ]; then
+                    print_info "Icon installed: $TD_ICON_PATH"
+                fi
+                [ "$FAST_MODE" != true ] && sleep 0.3
+
+                if [ "$NON_INTERACTIVE" = true ]; then
+                    print_info "Non-interactive mode: CREATE_SHORTCUT=$CREATE_SHORTCUT"
+                else
+                    printf "Create desktop shortcut? (y/n): "
+                    IFS= read -r -n 1 CREATE_SHORTCUT <"$INTERACTIVE_INPUT" || CREATE_SHORTCUT=""
+                    printf "\n"
+                fi
+                create_desktop_shortcut
+                create_applications_shortcut
+
+                if [ "$NON_INTERACTIVE" = true ]; then
+                    print_info "Non-interactive mode: ASSOC_FILES=$ASSOC_FILES"
+                else
+                    printf "Associate .toe files with TouchDesigner? (y/n): "
+                    IFS= read -r -n 1 ASSOC_FILES <"$INTERACTIVE_INPUT" || ASSOC_FILES=""
+                    printf "\n"
+                fi
+                associate_toe_files
+            else
+                print_warning "TouchDesigner is not installed yet; skipping launcher and desktop integration"
+            fi
 
             if install_optional_font_fix; then
                 print_info "Font fix available:"
@@ -1224,11 +1411,20 @@ main() {
             fi
 
             printf "\n${DIM}────────────────────────────────────────────${NC}\n"
-            printf "${PRIMARY}Installation Complete${NC}\n"
-            printf "${SECONDARY}TouchDesigner is ready to use!${NC}\n"
+            if [ "$headless_mode" = true ]; then
+                printf "${PRIMARY}Headless Preparation Complete${NC}\n"
+                printf "${SECONDARY}Re-run this script from a graphical session to finish installation.${NC}\n"
+            else
+                printf "${PRIMARY}Installation Complete${NC}\n"
+                printf "${SECONDARY}TouchDesigner is ready to use!${NC}\n"
+            fi
             printf "\n"
-            print_success "Launch TouchDesigner from the shortcut, or run this command in your terminal:"
-            print_info "$LAUNCHER_PATH"
+            if find_touchdesigner_exe >/dev/null; then
+                print_success "Launch TouchDesigner from the shortcut, or run this command in your terminal:"
+                print_info "$LAUNCHER_PATH"
+            else
+                print_info "When you have a graphical session, re-run the installer and choose Full install."
+            fi
             printf "\n"
             printf "${SECONDARY}Iswad${NC}\n"
             printf "${DIM}────────────────────────────────────────────${NC}\n\n"
