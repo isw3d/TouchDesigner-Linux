@@ -44,6 +44,15 @@ REPO_ASSETS_BASE_URL="${REPO_ASSETS_BASE_URL:-https://raw.githubusercontent.com/
 TERMINAL_WIDTH=$(tput cols 2>/dev/null)
 TERMINAL_WIDTH=${TERMINAL_WIDTH:-60}
 
+# Read prompts from stdin in normal mode, or from /dev/tty when piped (e.g. curl | bash).
+if [ -t 0 ]; then
+    INTERACTIVE_INPUT="/dev/stdin"
+elif [ -r /dev/tty ]; then
+    INTERACTIVE_INPUT="/dev/tty"
+else
+    INTERACTIVE_INPUT=""
+fi
+
 # Configuration variables
 FAST_MODE=${FAST_MODE:-false}
 ENABLE_DXVK=Y
@@ -102,6 +111,16 @@ print_warning() {
     printf "${DIM}•${NC} %s\n" "$1"
 }
 
+ensure_interactive_input() {
+    if [ -n "$INTERACTIVE_INPUT" ]; then
+        return
+    fi
+
+    print_error "No interactive terminal detected for prompts"
+    print_info "Run this installer in a terminal session so it can ask for input."
+    exit 1
+}
+
 require_graphical_session() {
     if [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
         return
@@ -136,6 +155,7 @@ run_and_tail() {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 show_main_menu() {
+    ensure_interactive_input
     detect_package_manager
     print_banner
 
@@ -190,7 +210,10 @@ show_main_menu() {
     printf "  0  Exit\n"
     printf "${ACCENT}      • Quit this script without making changes.${NC}\n\n"
 
-    read -r -p "Select option [1]: " choice
+    printf "Select option [1]: "
+    if ! IFS= read -r choice <"$INTERACTIVE_INPUT"; then
+        choice=""
+    fi
     choice=${choice:-1}
     choice=$(printf "%s" "$choice" | tr -d '[:space:]')
 }
@@ -658,10 +681,10 @@ download_touchdesigner() {
     while true; do
         # Read one escape sequence
         local key
-        IFS= read -rsn1 key
+        IFS= read -rsn1 key <"$INTERACTIVE_INPUT"
         if [[ "$key" == $'\x1b' ]]; then
             local seq
-            IFS= read -rsn2 -t 0.1 seq
+            IFS= read -rsn2 -t 0.1 seq <"$INTERACTIVE_INPUT"
             key="${key}${seq}"
         fi
 
@@ -966,8 +989,10 @@ DESKTOP
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 uninstall_touchdesigner() {
+    ensure_interactive_input
     print_warning "This will completely remove TouchDesigner and all related files"
-    read -p "Are you sure? (y/N): " -n 1 -r
+    printf "Are you sure? (y/N): "
+    IFS= read -r -n 1 REPLY <"$INTERACTIVE_INPUT" || REPLY=""
     printf "\n"
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         print_info "Uninstall cancelled"
@@ -1091,11 +1116,13 @@ main() {
             fi
             [ "$FAST_MODE" != true ] && sleep 0.3
 
-            read -p "Create desktop shortcut? (y/n): " -n 1 -r CREATE_SHORTCUT
+            printf "Create desktop shortcut? (y/n): "
+            IFS= read -r -n 1 CREATE_SHORTCUT <"$INTERACTIVE_INPUT" || CREATE_SHORTCUT=""
             printf "\n"
             create_desktop_shortcut
 
-            read -p "Associate .toe files with TouchDesigner? (y/n): " -n 1 -r ASSOC_FILES
+            printf "Associate .toe files with TouchDesigner? (y/n): "
+            IFS= read -r -n 1 ASSOC_FILES <"$INTERACTIVE_INPUT" || ASSOC_FILES=""
             printf "\n"
             associate_toe_files
 
