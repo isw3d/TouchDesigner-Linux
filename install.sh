@@ -348,11 +348,9 @@ run_with_progress() {
     start=$(date +%s)
 
     (
-        local last_line=""
+        last_line=""
         while true; do
-            local elapsed
             elapsed=$(( $(date +%s) - start ))
-            local latest
             latest=$(grep -E 'Get:|Unpacking|Setting up|Installing|Downloading|Retrieving|Preparing|installing |upgrading |downloading |:: Retrieving' \
                 "$log_file" 2>/dev/null | tail -n 1 | sed 's/^[[:space:]]*//' | tr -d '\r')
             if [ -n "$latest" ] && [ "$latest" != "$last_line" ]; then
@@ -928,20 +926,17 @@ install_windows_deps() {
 
     # Keep the installer visibly alive while winetricks runs in foreground.
     (
-        local last_progress=""
-        local current_verb=""
+        last_progress=""
+        current_verb=""
         while true; do
-            local elapsed
             elapsed=$(( $(date +%s) - wt_start ))
 
             # Track which verb winetricks is currently working on
-            local verb_line
             verb_line=$(grep -E '^Executing:' "$wt_log" 2>/dev/null | tail -n 1)
             if [ -n "$verb_line" ]; then
                 current_verb=$(printf "%s" "$verb_line" | sed 's/^Executing:[[:space:]]*//' | tr -d '\r')
             fi
 
-            local progress_line
             progress_line=$(grep -E 'Executing|Downloading|Installing|Using' "$wt_log" 2>/dev/null | tail -n 1)
 
             if [ -n "$progress_line" ] && [ "$progress_line" != "$last_progress" ]; then
