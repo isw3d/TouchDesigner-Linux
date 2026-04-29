@@ -541,7 +541,22 @@ install_packages() {
                 curl wget tar xz-utils cabextract unzip p7zip-full \
                 libvulkan1 libvulkan1:i386 vulkan-tools \
                 libglib2.0-0 libglib2.0-0:i386 \
-                libx11-6 libx11-6:i386; then
+                libx11-6 libx11-6:i386 \
+                libxext6 libxext6:i386 \
+                libxrender1 libxrender1:i386 \
+                libxrandr2 libxrandr2:i386 \
+                libxi6 libxi6:i386 \
+                libxcursor1 libxcursor1:i386 \
+                libxfixes3 libxfixes3:i386 \
+                libxinerama1 libxinerama1:i386 \
+                libxxf86vm1 libxxf86vm1:i386 \
+                libgl1 libgl1:i386 \
+                libegl1 libegl1:i386 \
+                libasound2 libasound2:i386 \
+                libc6 libc6:i386 \
+                libgcc-s1 libgcc-s1:i386 \
+                libstdc++6 libstdc++6:i386 \
+                mesa-utils xwayland; then
                 print_error "Failed to install required packages"
                 print_info "Try: sudo apt-get update && sudo apt-get upgrade"
                 exit 1
@@ -633,8 +648,17 @@ download_soda_runner() {
 
 setup_wine_prefix() {
     if [ -d "$WINE_PREFIX/drive_c" ]; then
-        print_success "Wine prefix already initialized"
-        return
+        if WINEPREFIX="$WINE_PREFIX" \
+            PATH="$RUNNER_DIR/bin:$PATH" \
+            "$RUNNER_DIR/bin/wine64" cmd /c exit >/dev/null 2>&1; then
+            print_success "Wine prefix already initialized"
+            return
+        fi
+
+        print_warning "Existing Wine prefix looks broken, recreating it..."
+        WINEPREFIX="$WINE_PREFIX" PATH="$RUNNER_DIR/bin:$PATH" \
+            "$RUNNER_DIR/bin/wineserver" -k >/dev/null 2>&1 || true
+        safe_rm_rf "$WINE_PREFIX"
     fi
 
     if ! require_graphical_session; then
@@ -654,6 +678,19 @@ setup_wine_prefix() {
         PATH="$RUNNER_DIR/bin:$PATH" \
             "$RUNNER_DIR/bin/wineboot" --init >"$wineboot_log" 2>&1; then
         tail -n 20 "$wineboot_log" || true
+
+        if grep -qiE 'could not load kernel32\.dll|status c0000135' "$wineboot_log"; then
+            print_error "Wine runtime dependency issue detected (kernel32.dll load failure)"
+            print_info "On Ubuntu/Debian, install missing runtime libs and retry:"
+            print_info "sudo dpkg --add-architecture i386 && sudo apt-get update"
+            print_info "sudo apt-get install -y libc6:i386 libgcc-s1:i386 libstdc++6:i386 libx11-6:i386 libxrandr2:i386 libgl1:i386 xwayland"
+        fi
+
+        if grep -qiE 'xrandr14_get_adapters|nodrv_CreateWindow|No GPU vendor found|Failed to create hwnd' "$wineboot_log"; then
+            print_warning "Display/GPU bridge issue detected while creating the Wine prefix"
+            print_info "If you are on Wayland, ensure Xwayland is installed and relogin."
+        fi
+
         rm -f "$wineboot_log"
         print_error "Wine prefix initialization failed"
         exit 1
