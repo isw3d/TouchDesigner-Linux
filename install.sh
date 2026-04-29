@@ -392,6 +392,30 @@ apt_has_install_candidate() {
     [ -n "$candidate" ] && [ "$candidate" != "(none)" ]
 }
 
+zypper_has_package() {
+    local pkg="$1"
+    local search_output
+
+    rpm -q "$pkg" >/dev/null 2>&1 && return 0
+    search_output=$(zypper -x search --match-exact --type package "$pkg" 2>/dev/null || true)
+    printf "%s" "$search_output" | grep -q "name=\"$pkg\""
+}
+
+append_first_zypper_package() {
+    local -n package_list_ref="$1"
+    shift
+
+    local pkg
+    for pkg in "$@"; do
+        if zypper_has_package "$pkg"; then
+            package_list_ref+=("$pkg")
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # INTERACTIVE MENU
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -706,12 +730,54 @@ install_packages() {
             ;;
         zypper)
             print_info "Installing required packages..."
-            if ! run_with_progress 6 sudo zypper install -y \
-                curl wget tar xz cabextract unzip p7zip \
-                Mesa-demo-x \
-                libvulkan1 libvulkan1-32bit vulkan-tools \
-                libglib-2_0-0 libglib-2_0-0-32bit \
-                libX11-6 libX11-6-32bit; then
+            local -a zypper_packages=(
+                curl wget tar xz cabextract unzip p7zip
+                Mesa-demo-x
+                libvulkan1 libvulkan1-32bit vulkan-tools
+            )
+
+            append_first_zypper_package zypper_packages libglib-2_0-0 glib2 || true
+            append_first_zypper_package zypper_packages libglib-2_0-0-32bit glib2-32bit || true
+            append_first_zypper_package zypper_packages libX11-6 || true
+            append_first_zypper_package zypper_packages libX11-6-32bit || true
+            append_first_zypper_package zypper_packages libXext6 || true
+            append_first_zypper_package zypper_packages libXext6-32bit || true
+            append_first_zypper_package zypper_packages libXrender1 || true
+            append_first_zypper_package zypper_packages libXrender1-32bit || true
+            append_first_zypper_package zypper_packages libXrandr2 || true
+            append_first_zypper_package zypper_packages libXrandr2-32bit || true
+            append_first_zypper_package zypper_packages libXi6 || true
+            append_first_zypper_package zypper_packages libXi6-32bit || true
+            append_first_zypper_package zypper_packages libXcursor1 || true
+            append_first_zypper_package zypper_packages libXcursor1-32bit || true
+            append_first_zypper_package zypper_packages libXfixes3 || true
+            append_first_zypper_package zypper_packages libXfixes3-32bit || true
+            append_first_zypper_package zypper_packages libXinerama1 || true
+            append_first_zypper_package zypper_packages libXinerama1-32bit || true
+            append_first_zypper_package zypper_packages libXxf86vm1 || true
+            append_first_zypper_package zypper_packages libXxf86vm1-32bit || true
+            append_first_zypper_package zypper_packages libXcomposite1 || true
+            append_first_zypper_package zypper_packages libXcomposite1-32bit || true
+            append_first_zypper_package zypper_packages libunwind8 libunwind || true
+            append_first_zypper_package zypper_packages libunwind8-32bit libunwind-32bit || true
+            append_first_zypper_package zypper_packages libgnutls30 gnutls || true
+            append_first_zypper_package zypper_packages libgnutls30-32bit gnutls-32bit || true
+            append_first_zypper_package zypper_packages libfreetype6 freetype2 || true
+            append_first_zypper_package zypper_packages libfreetype6-32bit freetype2-32bit || true
+            append_first_zypper_package zypper_packages libfontconfig1 fontconfig || true
+            append_first_zypper_package zypper_packages libfontconfig1-32bit fontconfig-32bit || true
+            append_first_zypper_package zypper_packages libasound2 alsa || true
+            append_first_zypper_package zypper_packages libasound2-32bit alsa-32bit || true
+            append_first_zypper_package zypper_packages libgcc_s1 || true
+            append_first_zypper_package zypper_packages libgcc_s1-32bit || true
+            append_first_zypper_package zypper_packages libstdc++6 || true
+            append_first_zypper_package zypper_packages libstdc++6-32bit || true
+            append_first_zypper_package zypper_packages libGL1 Mesa-libGL1 || true
+            append_first_zypper_package zypper_packages libGL1-32bit Mesa-libGL1-32bit || true
+            append_first_zypper_package zypper_packages libEGL1 Mesa-libEGL1 || true
+            append_first_zypper_package zypper_packages libEGL1-32bit Mesa-libEGL1-32bit || true
+
+            if ! run_with_progress 6 sudo zypper install -y "${zypper_packages[@]}"; then
                 print_error "Failed to install required packages"
                 print_info "Try: sudo zypper refresh && sudo zypper update"
                 exit 1
