@@ -352,7 +352,7 @@ run_with_progress() {
         while true; do
             elapsed=$(( $(date +%s) - start ))
             latest=$(grep -E 'Get:|Unpacking|Setting up|Installing|Downloading|Retrieving|Preparing|installing |upgrading |downloading |:: Retrieving' \
-                "$log_file" 2>/dev/null | tail -n 1 | sed 's/^[[:space:]]*//' | tr -d '\r')
+                "$log_file" 2>/dev/null | tail -n 1 | sed 's/^[[:space:]]*//' | tr -d '\r' || true)
             if [ -n "$latest" ] && [ "$latest" != "$last_line" ]; then
                 print_info "(${elapsed}s) $latest"
                 last_line="$latest"
@@ -741,7 +741,7 @@ download_soda_runner() {
     mkdir -p "$TD_BASE_DIR"
     check_network_access "$SODA_URL" || true
 
-    wget --show-progress -O "$tarball" "$SODA_URL" || {
+    wget -q --show-progress -O "$tarball" "$SODA_URL" || {
         print_error "Failed to download Soda Wine runner"
         rm -f "$tarball"
         exit 1
@@ -852,7 +852,7 @@ download_winetricks() {
 
     print_info "Downloading winetricks..."
     mkdir -p "$TD_BASE_DIR"
-    wget -O "$WINETRICKS_BIN" \
+    wget -q -O "$WINETRICKS_BIN" \
         "https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks" || {
         print_error "Failed to download winetricks"
         exit 1
@@ -932,12 +932,12 @@ install_windows_deps() {
             elapsed=$(( $(date +%s) - wt_start ))
 
             # Track which verb winetricks is currently working on
-            verb_line=$(grep -E '^Executing:' "$wt_log" 2>/dev/null | tail -n 1)
+            verb_line=$(grep -E '^Executing:' "$wt_log" 2>/dev/null | tail -n 1 || true)
             if [ -n "$verb_line" ]; then
-                current_verb=$(printf "%s" "$verb_line" | sed 's/^Executing:[[:space:]]*//' | tr -d '\r')
+                current_verb=$(printf "%s" "$verb_line" | sed 's/^Executing:[[:space:]]*//' | tr -d '\r' || true)
             fi
 
-            progress_line=$(grep -E 'Executing|Downloading|Installing|Using' "$wt_log" 2>/dev/null | tail -n 1)
+            progress_line=$(grep -E 'Executing|Downloading|Installing|Using' "$wt_log" 2>/dev/null | tail -n 1 || true)
 
             if [ -n "$progress_line" ] && [ "$progress_line" != "$last_progress" ]; then
                 print_info "Winetricks (${elapsed}s): $progress_line"
@@ -1168,7 +1168,7 @@ download_touchdesigner() {
         TD_FILEPATH="$DOWNLOAD_DIR/$TD_FILENAME"
     else
         print_info "Downloading $TD_FILENAME (≈2GB)..."
-        wget --show-progress -P "$DOWNLOAD_DIR" "$TD_URL" || {
+        wget -q --show-progress -P "$DOWNLOAD_DIR" "$TD_URL" || {
             print_error "Download failed"
             exit 1
         }
