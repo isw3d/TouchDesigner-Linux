@@ -606,6 +606,7 @@ install_packages() {
                 libgl1 libgl1:i386
                 libegl1 libegl1:i386
                 libc6 libc6:i386
+                libunwind8 libunwind8:i386
                 libgcc-s1 libgcc-s1:i386
                 libstdc++6 libstdc++6:i386
                 mesa-utils xwayland
