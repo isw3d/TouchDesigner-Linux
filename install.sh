@@ -643,6 +643,7 @@ install_packages() {
                 libunwind libunwind.i686 \
                 glibc glibc.i686 libgcc libgcc.i686 libstdc++ libstdc++.i686 \
                 gnutls gnutls.i686 \
+                freetype freetype.i686 fontconfig fontconfig.i686 \
                 alsa-lib alsa-lib.i686 \
                 libX11 libX11.i686 libXext libXext.i686 \
                 libXcomposite libXcomposite.i686 \
@@ -1140,7 +1141,7 @@ install_touchdesigner() {
 
     if PATH="$RUNNER_DIR/bin:$PATH" \
        WINEPREFIX="$WINE_PREFIX" \
-         WINEDLLOVERRIDES="$WINE_DLL_OVERRIDES" \
+             WINEDLLOVERRIDES="" \
        WINEDEBUG=-all \
        WINESERVER_DEBUG=0 \
            "$RUNNER_DIR/bin/wine64" "$TD_FILEPATH" >"$install_log" 2>&1; then
@@ -1150,6 +1151,15 @@ install_touchdesigner() {
     fi
 
     tail -n 20 "$install_log"
+
+    if grep -qiE 'FreeType font library|freetype\.org' "$install_log"; then
+        print_error "Wine runtime font library is missing (FreeType/fontconfig)"
+        if [ "$PKG_MANAGER" = "dnf" ]; then
+            print_info "On Fedora, run: sudo dnf install -y freetype freetype.i686 fontconfig fontconfig.i686"
+        elif [ "$PKG_MANAGER" = "apt" ]; then
+            print_info "On Ubuntu/Debian, run: sudo apt-get install -y libfreetype6 libfreetype6:i386 libfontconfig1 libfontconfig1:i386"
+        fi
+    fi
 
     if grep -qiE "nodrv_CreateWindow|No GPU vendor found|DISPLAY is set correctly|Failed to create hwnd" "$install_log"; then
         print_error "Installer GUI could not start due to display/GPU access issues"
