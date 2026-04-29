@@ -552,6 +552,7 @@ install_packages() {
             pkg_log=$(mktemp)
             if ! sudo pacman -S --needed --noconfirm \
                 curl wget tar xz cabextract unzip p7zip \
+                mesa-utils \
                 vulkan-tools vulkan-icd-loader lib32-vulkan-icd-loader \
                 lib32-glib2 lib32-gcc-libs lib32-libx11 libx11 \
                 xorg-xwayland >"$pkg_log" 2>&1; then
@@ -659,6 +660,7 @@ install_packages() {
             print_info "Installing required packages..."
             if ! run_and_tail 5 sudo zypper install -y \
                 curl wget tar xz cabextract unzip p7zip \
+                Mesa-demo-x \
                 libvulkan1 libvulkan1-32bit vulkan-tools \
                 libglib-2_0-0 libglib-2_0-0-32bit \
                 libX11-6 libX11-6-32bit; then
@@ -1173,7 +1175,23 @@ check_graphics() {
             print_warning "glxinfo did not return OpenGL information."
         fi
     else
-        print_warning "glxinfo not installed. Install mesa-utils or equivalent to verify OpenGL support."
+        case "$PKG_MANAGER" in
+            apt)
+                print_warning "glxinfo not installed. Install: sudo apt-get install -y mesa-utils"
+                ;;
+            dnf)
+                print_warning "glxinfo not installed. Install: sudo dnf install -y mesa-demos"
+                ;;
+            pacman)
+                print_warning "glxinfo not installed. Install: sudo pacman -S --needed mesa-utils"
+                ;;
+            zypper)
+                print_warning "glxinfo not installed. Install: sudo zypper install -y Mesa-demo-x"
+                ;;
+            *)
+                print_warning "glxinfo not installed. Install mesa-utils or equivalent to verify OpenGL support."
+                ;;
+        esac
     fi
 
     if command -v vulkaninfo >/dev/null 2>&1; then
