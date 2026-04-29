@@ -316,6 +316,14 @@ run_and_tail() {
     return 1
 }
 
+apt_has_install_candidate() {
+    local pkg="$1"
+    local candidate
+
+    candidate=$(apt-cache policy "$pkg" 2>/dev/null | awk '/Candidate:/ {print $2; exit}')
+    [ -n "$candidate" ] && [ "$candidate" != "(none)" ]
+}
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # INTERACTIVE MENU
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -537,26 +545,59 @@ install_packages() {
         apt)
             print_info "Enabling 32-bit architecture..."
             sudo dpkg --add-architecture i386 >/dev/null 2>&1 || true
-            if ! run_and_tail 5 sudo apt-get install -y \
-                curl wget tar xz-utils cabextract unzip p7zip-full \
-                libvulkan1 libvulkan1:i386 vulkan-tools \
-                libglib2.0-0 libglib2.0-0:i386 \
-                libx11-6 libx11-6:i386 \
-                libxext6 libxext6:i386 \
-                libxrender1 libxrender1:i386 \
-                libxrandr2 libxrandr2:i386 \
-                libxi6 libxi6:i386 \
-                libxcursor1 libxcursor1:i386 \
-                libxfixes3 libxfixes3:i386 \
-                libxinerama1 libxinerama1:i386 \
-                libxxf86vm1 libxxf86vm1:i386 \
-                libgl1 libgl1:i386 \
-                libegl1 libegl1:i386 \
-                libasound2 libasound2:i386 \
-                libc6 libc6:i386 \
-                libgcc-s1 libgcc-s1:i386 \
-                libstdc++6 libstdc++6:i386 \
-                mesa-utils xwayland; then
+
+            print_info "Refreshing apt package index..."
+            if ! run_and_tail 5 sudo apt-get update; then
+                print_error "Failed to refresh apt package index"
+                print_info "Try: sudo apt-get update"
+                exit 1
+            fi
+
+            local asound_pkg=""
+            local asound_pkg_i386=""
+            if apt_has_install_candidate "libasound2"; then
+                asound_pkg="libasound2"
+            elif apt_has_install_candidate "libasound2t64"; then
+                asound_pkg="libasound2t64"
+            fi
+
+            if [ -n "$asound_pkg" ] && apt_has_install_candidate "${asound_pkg}:i386"; then
+                asound_pkg_i386="${asound_pkg}:i386"
+            fi
+
+            if [ -z "$asound_pkg" ]; then
+                print_warning "Could not resolve libasound package name (continuing without explicit audio runtime package)"
+            fi
+
+            local -a apt_packages=(
+                curl wget tar xz-utils cabextract unzip p7zip-full
+                libvulkan1 libvulkan1:i386 vulkan-tools
+                libglib2.0-0 libglib2.0-0:i386
+                libx11-6 libx11-6:i386
+                libxext6 libxext6:i386
+                libxrender1 libxrender1:i386
+                libxrandr2 libxrandr2:i386
+                libxi6 libxi6:i386
+                libxcursor1 libxcursor1:i386
+                libxfixes3 libxfixes3:i386
+                libxinerama1 libxinerama1:i386
+                libxxf86vm1 libxxf86vm1:i386
+                libgl1 libgl1:i386
+                libegl1 libegl1:i386
+                libc6 libc6:i386
+                libgcc-s1 libgcc-s1:i386
+                libstdc++6 libstdc++6:i386
+                mesa-utils xwayland
+            )
+
+            if [ -n "$asound_pkg" ]; then
+                apt_packages+=("$asound_pkg")
+            fi
+            if [ -n "$asound_pkg_i386" ]; then
+                apt_packages+=("$asound_pkg_i386")
+            fi
+
+            if ! run_and_tail 5 sudo apt-get install -y "${apt_packages[@]}"; then
                 print_error "Failed to install required packages"
                 print_info "Try: sudo apt-get update && sudo apt-get upgrade"
                 exit 1
