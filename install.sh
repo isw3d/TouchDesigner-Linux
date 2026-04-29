@@ -100,6 +100,7 @@ TRACE=${TRACE:-false}
 ENABLE_DXVK=${ENABLE_DXVK:-Y}
 CREATE_SHORTCUT=${CREATE_SHORTCUT:-N}
 ASSOC_FILES=${ASSOC_FILES:-N}
+WINE_DLL_OVERRIDES="mscoree,mshtml="
 TD_ICON_PATH="touchdesigner"
 DEBUG_LOG_FILE=""
 OPTIONAL_FONT_FIX_LOCATIONS=""
@@ -720,6 +721,7 @@ download_soda_runner() {
 setup_wine_prefix() {
     if [ -d "$WINE_PREFIX/drive_c" ]; then
         if WINEPREFIX="$WINE_PREFIX" \
+            WINEDLLOVERRIDES="$WINE_DLL_OVERRIDES" \
             PATH="$RUNNER_DIR/bin:$PATH" \
             "$RUNNER_DIR/bin/wine64" cmd /c exit >/dev/null 2>&1; then
             print_success "Wine prefix already initialized"
@@ -745,7 +747,7 @@ setup_wine_prefix() {
 
     if ! WINEPREFIX="$WINE_PREFIX" \
         WINEARCH=win64 \
-        WINEDLLOVERRIDES="mscoree,mshtml=" \
+        WINEDLLOVERRIDES="$WINE_DLL_OVERRIDES" \
         PATH="$RUNNER_DIR/bin:$PATH" \
             "$RUNNER_DIR/bin/wineboot" --init >"$wineboot_log" 2>&1; then
         tail -n 20 "$wineboot_log" || true
@@ -901,6 +903,7 @@ install_windows_deps() {
     set +e
     PATH="$RUNNER_DIR/bin:$PATH" \
     WINEPREFIX="$WINE_PREFIX" \
+    WINEDLLOVERRIDES="$WINE_DLL_OVERRIDES" \
     WINE="$RUNNER_DIR/bin/wine64" \
     WINESERVER="$RUNNER_DIR/bin/wineserver" \
     WINEDEBUG=-all \
@@ -1133,6 +1136,7 @@ install_touchdesigner() {
 
     if PATH="$RUNNER_DIR/bin:$PATH" \
        WINEPREFIX="$WINE_PREFIX" \
+         WINEDLLOVERRIDES="$WINE_DLL_OVERRIDES" \
        WINEDEBUG=-all \
        WINESERVER_DEBUG=0 \
            "$RUNNER_DIR/bin/wine64" "$TD_FILEPATH" >"$install_log" 2>&1; then
@@ -1538,8 +1542,8 @@ uninstall_touchdesigner() {
 
     printf "\n${DIM}────────────────────────────────────────────${NC}\n"
     printf "${PRIMARY}Uninstall Complete${NC}\n"
-    printf "${SECONDARY}TouchDesigner has been completely removed.${NC}\n"
-    printf "${DIM}Iswad${NC}\n"
+    printf "${PRIMARY}TouchDesigner has been completely removed.${NC}\n"
+    printf "${SECONDARY}Iswad${NC}\n"
     printf "${DIM}────────────────────────────────────────────${NC}\n\n"
 }
 
