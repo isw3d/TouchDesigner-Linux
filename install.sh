@@ -337,6 +337,55 @@ run_and_tail() {
     return 1
 }
 
+run_with_progress() {
+    local interval="$1"
+    shift
+
+    local log_file
+    log_file=$(mktemp)
+
+    local start
+    start=$(date +%s)
+
+    (
+        local last_line=""
+        while true; do
+            local elapsed
+            elapsed=$(( $(date +%s) - start ))
+            local latest
+            latest=$(grep -E 'Get:|Unpacking|Setting up|Installing|Downloading|Retrieving|Preparing|installing |upgrading |downloading |:: Retrieving' \
+                "$log_file" 2>/dev/null | tail -n 1 | sed 's/^[[:space:]]*//' | tr -d '\r')
+            if [ -n "$latest" ] && [ "$latest" != "$last_line" ]; then
+                print_info "(${elapsed}s) $latest"
+                last_line="$latest"
+            else
+                print_info "Still working... (${elapsed}s)"
+            fi
+            sleep "$interval"
+        done
+    ) &
+    local progress_pid=$!
+
+    local cmd_status=0
+    if "$@" >"$log_file" 2>&1; then
+        cmd_status=0
+    else
+        cmd_status=$?
+    fi
+
+    kill "$progress_pid" 2>/dev/null || true
+    wait "$progress_pid" 2>/dev/null || true
+
+    if [ "$cmd_status" -ne 0 ]; then
+        tail -n 10 "$log_file"
+        rm -f "$log_file"
+        return "$cmd_status"
+    fi
+
+    rm -f "$log_file"
+    return 0
+}
+
 apt_has_install_candidate() {
     local pkg="$1"
     local candidate
@@ -549,20 +598,15 @@ install_packages() {
             fi
 
             print_info "Installing required packages..."
-            local pkg_log
-            pkg_log=$(mktemp)
-            if ! sudo pacman -S --needed --noconfirm \
+            if ! run_with_progress 6 sudo pacman -S --needed --noconfirm \
                 curl wget tar xz cabextract unzip p7zip \
                 mesa-utils \
                 vulkan-tools vulkan-icd-loader lib32-vulkan-icd-loader \
                 lib32-glib2 lib32-gcc-libs lib32-libx11 libx11 \
-                xorg-xwayland >"$pkg_log" 2>&1; then
-                tail -n 10 "$pkg_log"
-                rm -f "$pkg_log"
+                xorg-xwayland; then
                 print_error "Failed to install packages. Try: sudo pacman -Syu"
                 exit 1
             fi
-            rm -f "$pkg_log"
             ;;
         apt)
             print_info "Enabling 32-bit architecture..."
@@ -622,7 +666,7 @@ install_packages() {
                 apt_packages+=("$asound_pkg_i386")
             fi
 
-            if ! run_and_tail 5 sudo apt-get install -y "${apt_packages[@]}"; then
+            if ! run_with_progress 6 sudo apt-get install -y "${apt_packages[@]}"; then
                 print_error "Failed to install required packages"
                 print_info "Try: sudo apt-get update && sudo apt-get upgrade"
                 exit 1
@@ -639,7 +683,7 @@ install_packages() {
             fi
 
             print_info "Installing required packages..."
-            if ! run_and_tail 5 sudo dnf install -y \
+            if ! run_with_progress 6 sudo dnf install -y \
                 curl wget tar xz cabextract unzip p7zip \
                 vulkan-loader vulkan-loader.i686 mesa-vulkan-drivers vulkan-tools \
                 mesa-demos xorg-x11-server-Xwayland \
@@ -664,7 +708,7 @@ install_packages() {
             ;;
         zypper)
             print_info "Installing required packages..."
-            if ! run_and_tail 5 sudo zypper install -y \
+            if ! run_with_progress 6 sudo zypper install -y \
                 curl wget tar xz cabextract unzip p7zip \
                 Mesa-demo-x \
                 libvulkan1 libvulkan1-32bit vulkan-tools \
@@ -885,24 +929,31 @@ install_windows_deps() {
     # Keep the installer visibly alive while winetricks runs in foreground.
     (
         local last_progress=""
+        local current_verb=""
         while true; do
             local elapsed
             elapsed=$(( $(date +%s) - wt_start ))
 
+            # Track which verb winetricks is currently working on
+            local verb_line
+            verb_line=$(grep -E '^Executing:' "$wt_log" 2>/dev/null | tail -n 1)
+            if [ -n "$verb_line" ]; then
+                current_verb=$(printf "%s" "$verb_line" | sed 's/^Executing:[[:space:]]*//' | tr -d '\r')
+            fi
+
             local progress_line
             progress_line=$(grep -E 'Executing|Downloading|Installing|Using' "$wt_log" 2>/dev/null | tail -n 1)
-            if [ -z "$progress_line" ]; then
-                progress_line=$(tail -n 1 "$wt_log" 2>/dev/null | tr -d '\r')
-            fi
 
             if [ -n "$progress_line" ] && [ "$progress_line" != "$last_progress" ]; then
                 print_info "Winetricks (${elapsed}s): $progress_line"
                 last_progress="$progress_line"
+            elif [ -n "$current_verb" ]; then
+                print_info "Winetricks (${elapsed}s): working on ${current_verb}..."
             else
-                print_info "Winetricks still running... (${elapsed}s)"
+                print_info "Winetricks (${elapsed}s): preparing..."
             fi
 
-            sleep 12
+            sleep 8
         done
     ) &
     local heartbeat_pid=$!
