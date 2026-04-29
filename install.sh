@@ -644,6 +644,7 @@ install_packages() {
                 gnutls gnutls.i686 \
                 alsa-lib alsa-lib.i686 \
                 libX11 libX11.i686 libXext libXext.i686 \
+                libXcomposite libXcomposite.i686 \
                 libXrender libXrender.i686 libXrandr libXrandr.i686 \
                 libXi libXi.i686 libXcursor libXcursor.i686 \
                 libXfixes libXfixes.i686 libXinerama libXinerama.i686 \
@@ -1175,6 +1176,17 @@ check_graphics() {
             print_warning "glxinfo did not return OpenGL information."
         fi
     else
+        if [ "$PKG_MANAGER" = "dnf" ] && command -v rpm >/dev/null 2>&1 \
+            && rpm -q mesa-demos >/dev/null 2>&1; then
+            if [ -f /run/.containerenv ] || [ -n "${container:-}" ]; then
+                print_warning "glxinfo is not visible in this container environment (mesa-demos is installed)."
+                print_info "If Vulkan is detected, this is usually safe to ignore in Distrobox."
+            else
+                print_warning "mesa-demos is installed but glxinfo command is missing from PATH."
+            fi
+            return
+        fi
+
         case "$PKG_MANAGER" in
             apt)
                 print_warning "glxinfo not installed. Install: sudo apt-get install -y mesa-utils"
