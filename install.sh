@@ -1306,8 +1306,19 @@ Terminal=false
 Categories=Graphics;Development;
 DESKTOP
 
-    chmod +x "$DESKTOP_DIR/TouchDesigner.desktop"
+    trust_desktop_shortcut "$DESKTOP_DIR/TouchDesigner.desktop"
     print_success "Desktop shortcut created"
+}
+
+trust_desktop_shortcut() {
+    local desktop_file="$1"
+
+    [ -f "$desktop_file" ] || return 0
+    chmod +x "$desktop_file" 2>/dev/null || true
+
+    if command -v gio >/dev/null 2>&1; then
+        gio set "$desktop_file" metadata::trusted true >/dev/null 2>&1 || true
+    fi
 }
 
 create_applications_shortcut() {
