@@ -102,6 +102,7 @@ CREATE_SHORTCUT=${CREATE_SHORTCUT:-N}
 ASSOC_FILES=${ASSOC_FILES:-N}
 TD_ICON_PATH="touchdesigner"
 DEBUG_LOG_FILE=""
+OPTIONAL_FONT_FIX_LOCATIONS=""
 
 if [ "$NON_INTERACTIVE" = true ]; then
     [ "$CREATE_SHORTCUT" = "N" ] && CREATE_SHORTCUT="Y"
@@ -280,6 +281,24 @@ setup_debug_mode() {
 }
 
 setup_debug_mode
+
+add_optional_font_fix_location() {
+    local location="$1"
+
+    [ -n "$location" ] || return
+    case "\n$OPTIONAL_FONT_FIX_LOCATIONS\n" in
+        *"\n$location\n"*)
+            return
+            ;;
+    esac
+
+    if [ -n "$OPTIONAL_FONT_FIX_LOCATIONS" ]; then
+        OPTIONAL_FONT_FIX_LOCATIONS="$OPTIONAL_FONT_FIX_LOCATIONS
+$location"
+    else
+        OPTIONAL_FONT_FIX_LOCATIONS="$location"
+    fi
+}
 
 require_graphical_session() {
     if [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
@@ -1237,6 +1256,59 @@ install_optional_font_fix() {
     return 1
 }
 
+distribute_optional_font_fix() {
+    local src="$TD_BASE_DIR/wine_ui_fixes.tox"
+    local host_docs="$HOME/Documents"
+    local host_target="$host_docs/TouchDesigner"
+    local wine_user_dir="$WINE_PREFIX/drive_c/users/$USER"
+    local wine_username="$USER"
+    local wine_desktop="$wine_user_dir/Desktop"
+
+    [ -f "$src" ] || return 0
+    OPTIONAL_FONT_FIX_LOCATIONS=""
+    add_optional_font_fix_location "$src"
+
+    # Host-visible location for easy manual import.
+    mkdir -p "$host_target"
+    local host_fix_path="$host_target/wine_ui_fixes.tox"
+    if cp -f "$src" "$host_fix_path" 2>/dev/null; then
+        add_optional_font_fix_location "$host_fix_path"
+    fi
+
+    # Wine-visible locations for easy drag-and-drop inside TouchDesigner.
+    if [ -d "$WINE_PREFIX/drive_c" ]; then
+        if [ ! -d "$wine_user_dir" ]; then
+            local detected_user_dir
+            detected_user_dir=$(find "$WINE_PREFIX/drive_c/users" -mindepth 1 -maxdepth 1 -type d \
+                ! -iname 'Public' ! -iname 'Default' ! -iname 'Default User' \
+                2>/dev/null | head -n 1)
+            if [ -n "$detected_user_dir" ]; then
+                wine_user_dir="$detected_user_dir"
+                wine_username="$(basename "$detected_user_dir")"
+                wine_desktop="$wine_user_dir/Desktop"
+            fi
+        fi
+
+        if [ -x "$RUNNER_DIR/bin/wine64" ]; then
+            local resolved_desktop=""
+
+            resolved_desktop=$(WINEPREFIX="$WINE_PREFIX" PATH="$RUNNER_DIR/bin:$PATH" \
+                "$RUNNER_DIR/bin/wine64" winepath -u "C:\\users\\$wine_username\\Desktop" 2>/dev/null | tr -d '\r')
+
+            if [ -n "$resolved_desktop" ] && [ -d "$resolved_desktop" ]; then
+                wine_desktop="$resolved_desktop"
+            fi
+        fi
+
+        mkdir -p "$wine_desktop"
+        local wine_desktop_fix_path="$wine_desktop/wine_ui_fixes.tox"
+
+        if cp -f "$src" "$wine_desktop_fix_path" 2>/dev/null; then
+            add_optional_font_fix_location "$wine_desktop_fix_path"
+        fi
+    fi
+}
+
 install_optional_icon() {
     local src
     TD_ICON_PATH="touchdesigner"
@@ -1555,8 +1627,14 @@ main() {
             fi
 
             if install_optional_font_fix; then
+                distribute_optional_font_fix
                 print_info "Font fix available:"
-                print_info "$TD_BASE_DIR/wine_ui_fixes.tox"
+
+                while IFS= read -r fix_location; do
+                    [ -n "$fix_location" ] || continue
+                    print_info "$fix_location"
+                done <<< "$OPTIONAL_FONT_FIX_LOCATIONS"
+
                 print_info "Import it in your TouchDesigner project if UI text is missing"
             fi
 
