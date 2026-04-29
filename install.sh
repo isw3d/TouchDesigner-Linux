@@ -635,8 +635,19 @@ install_packages() {
             print_info "Installing required packages..."
             if ! run_and_tail 5 sudo dnf install -y \
                 curl wget tar xz cabextract unzip p7zip \
-                vulkan-loader mesa-vulkan-drivers vulkan-tools \
-                glibc.i686 libX11.i686 glib2.i686 \
+                vulkan-loader vulkan-loader.i686 mesa-vulkan-drivers vulkan-tools \
+                mesa-demos xorg-x11-server-Xwayland \
+                libunwind libunwind.i686 \
+                glibc glibc.i686 libgcc libgcc.i686 libstdc++ libstdc++.i686 \
+                gnutls gnutls.i686 \
+                alsa-lib alsa-lib.i686 \
+                libX11 libX11.i686 libXext libXext.i686 \
+                libXrender libXrender.i686 libXrandr libXrandr.i686 \
+                libXi libXi.i686 libXcursor libXcursor.i686 \
+                libXfixes libXfixes.i686 libXinerama libXinerama.i686 \
+                libXxf86vm libXxf86vm.i686 \
+                mesa-libGL mesa-libGL.i686 mesa-libGLU mesa-libGLU.i686 mesa-libEGL mesa-libEGL.i686 \
+                glib2 glib2.i686 \
                 mesa-vulkan-drivers.i686; then
                 print_error "Failed to install required packages"
                 print_info "Try: sudo dnf upgrade --refresh"
@@ -739,11 +750,22 @@ setup_wine_prefix() {
             "$RUNNER_DIR/bin/wineboot" --init >"$wineboot_log" 2>&1; then
         tail -n 20 "$wineboot_log" || true
 
+        if grep -qiE 'libunwind\.so\.8|could not load ntdll\.so' "$wineboot_log"; then
+            print_error "Wine runtime dependency issue detected (missing libunwind/ntdll runtime)"
+            print_info "On Fedora, install missing runtime libs and retry:"
+            print_info "sudo dnf install -y libunwind libunwind.i686 glibc glibc.i686 libgcc libgcc.i686 libstdc++ libstdc++.i686 gnutls gnutls.i686 vulkan-loader vulkan-loader.i686"
+        fi
+
         if grep -qiE 'could not load kernel32\.dll|status c0000135' "$wineboot_log"; then
             print_error "Wine runtime dependency issue detected (kernel32.dll load failure)"
-            print_info "On Ubuntu/Debian, install missing runtime libs and retry:"
-            print_info "sudo dpkg --add-architecture i386 && sudo apt-get update"
-            print_info "sudo apt-get install -y libc6:i386 libgcc-s1:i386 libstdc++6:i386 libx11-6:i386 libxrandr2:i386 libgl1:i386 xwayland"
+            if [ "$PKG_MANAGER" = "dnf" ]; then
+                print_info "On Fedora, install missing runtime libs and retry:"
+                print_info "sudo dnf install -y libunwind libunwind.i686 glibc glibc.i686 libgcc libgcc.i686 libstdc++ libstdc++.i686 gnutls gnutls.i686 vulkan-loader vulkan-loader.i686 xorg-x11-server-Xwayland"
+            else
+                print_info "On Ubuntu/Debian, install missing runtime libs and retry:"
+                print_info "sudo dpkg --add-architecture i386 && sudo apt-get update"
+                print_info "sudo apt-get install -y libc6:i386 libgcc-s1:i386 libstdc++6:i386 libx11-6:i386 libxrandr2:i386 libgl1:i386 xwayland"
+            fi
         fi
 
         if grep -qiE 'xrandr14_get_adapters|nodrv_CreateWindow|No GPU vendor found|Failed to create hwnd' "$wineboot_log"; then
