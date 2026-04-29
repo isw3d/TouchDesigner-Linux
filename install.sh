@@ -101,6 +101,7 @@ ENABLE_DXVK=${ENABLE_DXVK:-Y}
 CREATE_SHORTCUT=${CREATE_SHORTCUT:-N}
 ASSOC_FILES=${ASSOC_FILES:-N}
 WINE_DLL_OVERRIDES="mscoree="
+USE_NVIDIA_DGPU=${USE_NVIDIA_DGPU:-N}
 TD_ICON_PATH="touchdesigner"
 DEBUG_LOG_FILE=""
 OPTIONAL_FONT_FIX_LOCATIONS=""
@@ -1175,11 +1176,33 @@ install_touchdesigner() {
 check_graphics() {
     print_info "Checking graphics support..."
 
+    if command -v lspci >/dev/null 2>&1; then
+        local gpu_lines
+        gpu_lines=$(lspci 2>/dev/null | grep -E 'VGA compatible controller|3D controller|Display controller' || true)
+        if [ -n "$gpu_lines" ]; then
+            print_info "Detected GPUs (PCI):"
+            printf "%s\n" "$gpu_lines"
+        fi
+    fi
+
+    if command -v nvidia-smi >/dev/null 2>&1; then
+        local nvidia_gpus
+        nvidia_gpus=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null || true)
+        if [ -n "$nvidia_gpus" ]; then
+            print_info "Detected NVIDIA GPU(s):"
+            printf "%s\n" "$nvidia_gpus"
+        fi
+    fi
+
     if command -v glxinfo >/dev/null 2>&1; then
         local glx_info
         glx_info=$(glxinfo 2>/dev/null | grep -E "OpenGL vendor string|OpenGL renderer string|OpenGL version string")
         if [ -n "$glx_info" ]; then
             printf "%s\n" "$glx_info"
+            if command -v nvidia-smi >/dev/null 2>&1 && ! echo "$glx_info" | grep -qi nvidia; then
+                print_warning "OpenGL is currently using a non-NVIDIA GPU"
+                print_info "Set USE_NVIDIA_DGPU=Y before launch to force NVIDIA offload on hybrid laptops."
+            fi
             if echo "$glx_info" | grep -qi llvmpipe; then
                 print_warning "LLVMPipe detected: software rendering may reduce TouchDesigner performance."
             fi
@@ -1258,6 +1281,7 @@ XML
 create_launcher_script() {
     local runner_path="$RUNNER_DIR"
     local prefix_path="$WINE_PREFIX"
+    local nvidia_mode="$USE_NVIDIA_DGPU"
 
     mkdir -p "$LAUNCHER_DIR"
 
@@ -1265,6 +1289,7 @@ create_launcher_script() {
 #!/bin/bash
 RUNNER_DIR="${runner_path}"
 WINE_PREFIX="${prefix_path}"
+USE_NVIDIA_DGPU="${nvidia_mode}"
 
 find_touchdesigner_exe() {
     find "\$WINE_PREFIX/drive_c" -type f -iname 'TouchDesigner.exe' 2>/dev/null | head -n 1
@@ -1275,6 +1300,16 @@ TOUCHDESIGNER_EXE="\$(find_touchdesigner_exe)"
 if [ -z "\$TOUCHDESIGNER_EXE" ]; then
     echo "Error: TouchDesigner.exe not found in Wine prefix."
     exit 1
+fi
+
+# On hybrid laptops, optionally offload rendering to NVIDIA dGPU.
+if command -v nvidia-smi >/dev/null 2>&1; then
+    if [ "\$USE_NVIDIA_DGPU" = "Y" ] || [ "\$USE_NVIDIA_DGPU" = "y" ]; then
+        export __NV_PRIME_RENDER_OFFLOAD=1
+        export __GLX_VENDOR_LIBRARY_NAME=nvidia
+        export __VK_LAYER_NV_optimus=NVIDIA_only
+        export DRI_PRIME=1
+    fi
 fi
 
 # Handle optional .toe file argument
