@@ -1180,7 +1180,7 @@ check_graphics() {
             && rpm -q mesa-demos >/dev/null 2>&1; then
             if [ -f /run/.containerenv ] || [ -n "${container:-}" ]; then
                 print_warning "glxinfo is not visible in this container environment (mesa-demos is installed)."
-                print_info "If Vulkan is detected, this is usually safe to ignore in Distrobox."
+                print_info "If Vulkan is detected, this is usually safe to ignore."
             else
                 print_warning "mesa-demos is installed but glxinfo command is missing from PATH."
             fi
