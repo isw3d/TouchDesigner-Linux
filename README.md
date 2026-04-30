@@ -58,6 +58,8 @@ The script is idempotent, it is safe to run multiple times. It skips already-ins
 
 Run the installer again and choose **Uninstall**. This removes the runner, prefix, launcher, and all desktop entries created by the script.
 
+---
+
 ### Useful Paths
 
 | Path | Description |
