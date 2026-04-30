@@ -94,32 +94,6 @@ The .toe association entry is hidden from app menu by default (NoDisplay=true). 
 Run installer again and choose Uninstall.
 
 This removes runner, prefix, launcher, desktop entries, and file association files created by this script.
-
-### Compatibility Notes
-
-Observed on recent NVIDIA + Wayland setups:
-
-- Launch and runtime: working
-- UI rendering: working with wine_ui_fixes.tox
-- NDI and TD-Bitwig: working in tested setups
-- Video Device In: partial (device may lock until restart/replug)
-- NVIDIA TOP: not working in this Wine environment (CUDA/TensorRT init issues)
-
-## Screenshots
-
-![Setup](Screenshots/1.png)
-![Dependencies](Screenshots/2.png)
-![Run executable](Screenshots/3.png)
-![Launch](Screenshots/4.png)
-![Font fix](Screenshots/5.png)
-![Optional setup](Screenshots/6.png)
-![Toe icon example](Screenshots/7.png)
-
-Built with care.
-
-Iswad
-
-
 ______
 
 ---
