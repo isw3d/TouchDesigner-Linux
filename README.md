@@ -30,9 +30,9 @@ To run in debug mode (verbose logs for bug reports):
 DEBUG=true bash <(curl -sSL https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/install.sh)
 ```
 
-The script is idempotent — safe to run multiple times. It skips already-installed components and can be used for updates or repairs.
+The script is idempotent, it is safe to run multiple times. It skips already-installed components and can be used for updates or repairs.
 
-> **What it does:** detects your distro, installs system packages, downloads a Soda Wine runner, sets up a Wine prefix, installs Windows dependencies via Winetricks, lets you pick a TD version, and creates a launcher with optional desktop integration.
+**What it does:** detects your distro, installs system packages, downloads a Soda Wine runner, sets up a Wine prefix, installs Windows dependencies via Winetricks, lets you pick a TD version, and creates a launcher with optional desktop integration.
 
 ---
 
@@ -45,15 +45,16 @@ The script is idempotent — safe to run multiple times. It skips already-instal
 | Fedora-based | Fedora, RHEL… |
 | openSUSE-based | Leap, Tumbleweed… |
 
----
 
 **Expected duration:** 50–60 min on first run.
 
-> ⏳ The longest step is the TouchDesigner `.exe` installation — expect ~30 min for that step alone.
+> ⏳ The longest step is the TouchDesigner `.exe` installation. Expect ~30 min for that step alone.
 >
 > First launch can take 1–2 min. This is all normal.
 
----
+### Uninstall
+
+Run the installer again and choose **Uninstall**. This removes the runner, prefix, launcher, and all desktop entries created by the script.
 
 ### Useful Paths
 
@@ -72,18 +73,12 @@ The script is idempotent — safe to run multiple times. It skips already-instal
 | --- | --- |
 | No display / GUI fails | Run from a graphical session with `DISPLAY` or `WAYLAND_DISPLAY` set |
 | Version list fetch fails | Script falls back to a curated list automatically |
-| Long dependency phase | The Windows deps step is slow and quiet — just wait |
+| Long dependency phase | The Windows deps step is slow and quiet, just wait |
 | Duplicate menu entry | Remove stale `.desktop` files in `~/.local/share/applications` and run `update-desktop-database` |
 
 ---
 
-### Uninstall
-
-Run the installer again and choose **Uninstall**. This removes the runner, prefix, launcher, and all desktop entries created by the script.
-
 </details>
-
----
 
 <details>
 <summary><b>Manual Installation (via Bottles)</b></summary>
