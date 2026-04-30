@@ -1,7 +1,5 @@
 # TouchDesigner-Linux
 
-
-
 This is an automated installer to run TouchDesigner on Linux.
 
 ![Screenshot](Screenshots/0.png)
@@ -116,8 +114,6 @@ This guide gives a complete, working setup.
 - [7. Optional: Flatpak Filesystem Access](#7-optional-flatpak-filesystem-access)
 - [8. Optional: Desktop Integration](#8-optional-desktop-integration)
 - [9. Screenshots](#9-screenshots)
-- [10. Compatibility Status](#10-compatibility-status)
-- [11. Notes](#11-notes)
 
 ---
 
@@ -321,10 +317,13 @@ update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 ### 5. Font fix
 ![Flatseal optional setup](Screenshots/6.png)
 
+Built with care.
+
+Iswad
+
 ---
 
-### 10. Compatibility Status
-
+## Compatibility Status
 
 | Area | Status | Notes |
 | --- | --- | --- |
@@ -337,15 +336,12 @@ update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 | Video Device In | ⚠️ Partial | USB Webcams work on first init, but Wine "locks" the device. Replug or TD restart required to reset |
 | NVIDIA TOP | ❌ Not working | Background, Flow and Denoise fail to init CUDA/TensorRT in this environment |
 | External installs / integrations | ❓ Not fully tested | Third-party installs, Kinect, extra plugins, and advanced external production pipelines still need broader testing |
+
 ---
 
-### 11. Notes
+## Notes
 
 - NVIDIA GPUs are highly recommended.
 - Wayland is strongly recommended (X11 may cause launch issues or black screen)
 - Performance may vary depending on hardware and driver setup.
 - Overall, my experience was smoother than on Windows, with better performance and a much cooler-running machine (gaming laptop) due to Linux optimizations.
-
-Built with care.
-
-Iswad
