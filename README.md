@@ -1,13 +1,14 @@
 # TouchDesigner-Linux
 
+
+
+This is an automated installer to run TouchDesigner on Linux.
+
 ![Screenshot](Screenshots/0.png)
 
-Automated installer to run TouchDesigner on Linux.
-This uses a standalone Soda Wine runner.
-
 Choose your installation method:
-- **[Automated Installation](#automated-installation)** — Script one-liner, all-in-one setup
-- **[Manual Installation](#manual-installation-via-bottles)** — Manual setup with Bottles
+- **[Automated Installation](#automated-installation)** : Script one-liner, all-in-one setup
+- **[Manual Installation](#manual-installation-via-bottles)** : Manual setup with Bottles
 
 ---
 
@@ -23,7 +24,7 @@ Choose your installation method:
 curl -sSL https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/install.sh | bash
 ```
 
-**Note:** The script is idempotent — you can run it multiple times safely. It skips already-installed components and can be used for updates or repairs.
+**Note:** The script is idempotent, you can run it multiple times safely. It skips already-installed components and can be used for updates or repairs.
 
 This script installs system dependencies, Wine runner, Winetricks components, TouchDesigner launcher, and optional desktop integration.
 
@@ -323,6 +324,8 @@ DESKTOP_FILE="$DESKTOP_DIR/TouchDesigner.desktop"
 [ -f "$DESKTOP_FILE" ] || DESKTOP_FILE="$(grep -lE '(^Name=.*TouchDesigner|bottles-cli.*TouchDesigner)' "$DESKTOP_DIR"/*.desktop 2>/dev/null | head -n1)"
 [ -n "$DESKTOP_FILE" ] && sed -i "s|^Exec=.*|Exec=$HOME/.local/bin/touchdesigner-launcher.sh %f|" "$DESKTOP_FILE" && echo "Updated: $DESKTOP_FILE" || echo "TouchDesigner desktop file not found in $DESKTOP_DIR"
 update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
+```
+
 ---
 
 ### 9. Screenshots
