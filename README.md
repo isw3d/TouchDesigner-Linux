@@ -52,6 +52,8 @@ The script is idempotent, it is safe to run multiple times. It skips already-ins
 >
 > First launch can take 1–2 min. This is all normal.
 
+---
+
 ### Uninstall
 
 Run the installer again and choose **Uninstall**. This removes the runner, prefix, launcher, and all desktop entries created by the script.
