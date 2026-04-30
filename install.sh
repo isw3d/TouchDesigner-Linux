@@ -1200,10 +1200,14 @@ check_installation_status() {
 }
 
 download_touchdesigner() {
-    local td_page="https://derivative.ca/download"
+    local td_archive="https://derivative.ca/download/archive"
     local -a versions=()
     local -a fallback_versions=(
         "2025.32460"
+        "2025.32280"
+        "2025.32050"
+        "2025.31760"
+        "2025.31550"
         "2025.30000"
         "2024.10000"
         "2023.12120"
@@ -1216,14 +1220,14 @@ download_touchdesigner() {
     td_html=$(mktemp)
 
     print_info "Fetching available TouchDesigner versions..."
-    check_network_access "$td_page" || true
     print_info "Trying Derivative website (curl, timeout 20s)..."
     curl -fsSL \
         --connect-timeout 8 \
         --max-time 20 \
         --retry 1 \
         --retry-delay 1 \
-        "$td_page" \
+        -A "Mozilla/5.0 (X11; Linux x86_64; rv:124.0) Gecko/20100101 Firefox/124.0" \
+        "$td_archive" \
         -o "$td_html" 2>/dev/null || true
 
     if [ ! -s "$td_html" ]; then
@@ -1232,13 +1236,13 @@ download_touchdesigner() {
         wget -q \
             --timeout=20 \
             --tries=1 \
-            -O "$td_html" "$td_page" 2>/dev/null || true
+            --user-agent="Mozilla/5.0 (X11; Linux x86_64; rv:124.0) Gecko/20100101 Firefox/124.0" \
+            -O "$td_html" "$td_archive" 2>/dev/null || true
     fi
 
     if [ -s "$td_html" ]; then
         mapfile -t versions < <(
-            grep -oE 'https://download\.derivative\.ca/TouchDesigner\.[0-9]+\.[0-9]+\.exe' "$td_html" \
-                | sed -E 's#^.*/TouchDesigner\.##; s#\.exe$##' \
+            grep -oE '20[0-9]{2}\.[0-9]{4,6}' "$td_html" \
                 | sort -Vu \
                 | sort -Vr
         )
