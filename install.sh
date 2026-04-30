@@ -57,16 +57,25 @@ check_prerequisites
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Configuration
-TD_BASE_DIR="$HOME/.local/share/touchdesigner-linux"
-RUNNER_DIR="$TD_BASE_DIR/runner"
-WINE_PREFIX="$TD_BASE_DIR/prefix"
-WINETRICKS_BIN="$TD_BASE_DIR/winetricks"
-LOG_DIR="$TD_BASE_DIR/logs"
+TD_BASE_DIR="${TD_BASE_DIR:-$HOME/.local/share/touchdesigner-linux}"
+RUNNER_DIR=""
+WINE_PREFIX=""
+WINETRICKS_BIN=""
+LOG_DIR=""
 DOWNLOAD_DIR="$HOME/Downloads"
 DESKTOP_DIR="$HOME/Desktop"
 APPLICATIONS_DIR="$HOME/.local/share/applications"
 LAUNCHER_DIR="$HOME/.local/bin"
 LAUNCHER_PATH="$LAUNCHER_DIR/launch-touchdesigner.sh"
+
+refresh_runtime_paths() {
+    RUNNER_DIR="$TD_BASE_DIR/runner"
+    WINE_PREFIX="$TD_BASE_DIR/prefix"
+    WINETRICKS_BIN="$TD_BASE_DIR/winetricks"
+    LOG_DIR="$TD_BASE_DIR/logs"
+}
+
+refresh_runtime_paths
 
 SODA_URL="https://github.com/bottlesdevs/wine/releases/download/soda-9.0-1/soda-9.0-1-x86_64.tar.xz"
 DXVK_VERSION="2.4"
@@ -282,6 +291,85 @@ setup_debug_mode() {
     fi
 }
 
+path_is_noexec() {
+    local target_path="$1"
+    local mount_opts=""
+    local mount_point=""
+
+    if command -v findmnt >/dev/null 2>&1; then
+        mount_opts=$(findmnt -no OPTIONS -T "$target_path" 2>/dev/null || true)
+    fi
+
+    if [ -z "$mount_opts" ]; then
+        mount_point=$(stat -c %m "$target_path" 2>/dev/null || true)
+        if [ -n "$mount_point" ] && [ -r /proc/mounts ]; then
+            mount_opts=$(awk -v mp="$mount_point" '$2 == mp {print $4; exit}' /proc/mounts 2>/dev/null || true)
+        fi
+    fi
+
+    case ",${mount_opts}," in
+        *,noexec,*)
+            return 0
+            ;;
+    esac
+
+    return 1
+}
+
+path_allows_exec() {
+    local target_path="$1"
+    local probe_file="$target_path/.td_exec_probe.$$"
+
+    if ! mkdir -p "$target_path" >/dev/null 2>&1; then
+        return 1
+    fi
+
+    if ! printf '#!/bin/sh\nexit 0\n' >"$probe_file" 2>/dev/null; then
+        rm -f "$probe_file" >/dev/null 2>&1 || true
+        return 1
+    fi
+
+    chmod +x "$probe_file" >/dev/null 2>&1 || {
+        rm -f "$probe_file" >/dev/null 2>&1 || true
+        return 1
+    }
+
+    if "$probe_file" >/dev/null 2>&1; then
+        rm -f "$probe_file" >/dev/null 2>&1 || true
+        return 0
+    fi
+
+    rm -f "$probe_file" >/dev/null 2>&1 || true
+    return 1
+}
+
+ensure_exec_capable_base_dir() {
+    mkdir -p "$TD_BASE_DIR" 2>/dev/null || true
+
+    if ! path_is_noexec "$TD_BASE_DIR" && path_allows_exec "$TD_BASE_DIR"; then
+        return
+    fi
+
+    print_warning "Current install path is not exec-capable: $TD_BASE_DIR"
+
+    local fallback
+    for fallback in "$HOME/.cache/touchdesigner-linux" "/var/tmp/$USER/touchdesigner-linux"; do
+        mkdir -p "$fallback" 2>/dev/null || true
+        if ! path_is_noexec "$fallback" && path_allows_exec "$fallback"; then
+            TD_BASE_DIR="$fallback"
+            refresh_runtime_paths
+            print_warning "Switched installation path to exec-capable location: $TD_BASE_DIR"
+            return
+        fi
+    done
+
+    print_error "Could not find an exec-capable filesystem for the Wine prefix"
+    print_info "Set TD_BASE_DIR to a path on an exec-mounted filesystem, then rerun installer"
+    print_info "Example: TD_BASE_DIR=/var/tmp/$USER/touchdesigner-linux bash install.sh"
+    exit 1
+}
+
+ensure_exec_capable_base_dir
 setup_debug_mode
 
 add_optional_font_fix_location() {
@@ -868,6 +956,13 @@ setup_wine_prefix() {
             "$RUNNER_DIR/bin/wineboot" --init >"$wineboot_log" 2>&1; then
         tail -n 20 "$wineboot_log" || true
 
+        if grep -qiE 'noexec filesystem|failed to set 60000020 protection' "$wineboot_log"; then
+            print_error "Wine prefix path is on a noexec filesystem"
+            print_info "Current path: $WINE_PREFIX"
+            print_info "Re-run with an exec-capable path, for example:"
+            print_info "TD_BASE_DIR=/var/tmp/$USER/touchdesigner-linux bash install.sh"
+        fi
+
         if grep -qiE 'libunwind\.so\.8|could not load ntdll\.so' "$wineboot_log"; then
             print_error "Wine runtime dependency issue detected (missing libunwind/ntdll runtime)"
             print_info "On Fedora, install missing runtime libs and retry:"
@@ -941,7 +1036,7 @@ install_dxvk() {
     print_info "Downloading DXVK $DXVK_VERSION..."
     local dxvk_tarball="$TD_BASE_DIR/dxvk.tar.gz"
     check_network_access "$DXVK_URL" || true
-    wget -O "$dxvk_tarball" "$DXVK_URL" || {
+    wget -q --show-progress -O "$dxvk_tarball" "$DXVK_URL" || {
         print_warning "Failed to download DXVK, skipping"
         rm -f "$dxvk_tarball"
         return
@@ -983,6 +1078,21 @@ install_dxvk() {
 install_windows_deps() {
     print_info "Installing Windows dependencies (allfonts, d3dx11_43, vcrun2019)..."
     print_info "This can take several minutes depending on your network and disk speed."
+
+    local appdata_check
+    appdata_check=$(WINEPREFIX="$WINE_PREFIX" PATH="$RUNNER_DIR/bin:$PATH" \
+        "$RUNNER_DIR/bin/wine64" cmd.exe /c echo %AppData% 2>/dev/null | tr -d '\r' | tail -n 1)
+    if [ -z "$appdata_check" ] || printf "%s" "$appdata_check" | grep -q '^%AppData%$'; then
+        print_warning "Wine runtime check failed (%AppData% unavailable), repairing Wine prefix..."
+        setup_wine_prefix
+        appdata_check=$(WINEPREFIX="$WINE_PREFIX" PATH="$RUNNER_DIR/bin:$PATH" \
+            "$RUNNER_DIR/bin/wine64" cmd.exe /c echo %AppData% 2>/dev/null | tr -d '\r' | tail -n 1)
+        if [ -z "$appdata_check" ] || printf "%s" "$appdata_check" | grep -q '^%AppData%$'; then
+            print_error "Wine runtime is still unhealthy after prefix repair (%AppData% empty)"
+            print_info "Try rerunning with: TD_BASE_DIR=/var/tmp/$USER/touchdesigner-linux bash install.sh"
+            exit 1
+        fi
+    fi
 
     local wt_log
     wt_log=$(mktemp)
@@ -1039,7 +1149,12 @@ install_windows_deps() {
     print_info "Windows dependencies step completed in ${total_elapsed}s"
 
     if [ "$wt_status" -ne 0 ]; then
-        print_warning "Winetricks exited with status ${wt_status}; checking logs for recoverable issues"
+        print_error "Winetricks failed with status ${wt_status}"
+        print_info "Last winetricks log lines:"
+        grep -v -E '^[0-9a-f]+:(fixme|warn):|wineserver:' "$wt_log" | tail -n 20 || tail -n 20 "$wt_log" || true
+        print_info "Retry with DEBUG=true for a full persistent log."
+        rm -f "$wt_log"
+        exit 1
     fi
 
     # Check for real failures (exclude known harmless patterns)
@@ -1049,7 +1164,7 @@ install_windows_deps() {
 
     if [ -n "$real_errors" ]; then
         printf "%s\n" "$real_errors"
-        print_warning "Winetricks encountered errors (this can be normal for some components)"
+        print_warning "Winetricks reported non-fatal warnings"
     fi
 
     rm -f "$wt_log"
@@ -1778,12 +1893,8 @@ main() {
             [ "$FAST_MODE" != true ] && sleep 0.3
 
             # Step 3: Wine prefix
-            if [ ! -d "$WINE_PREFIX/drive_c" ]; then
-                print_info "Step 3/6: Initializing Wine prefix..."
-                setup_wine_prefix
-            else
-                print_success "Step 3/6: Wine prefix already initialized, skipping..."
-            fi
+            print_info "Step 3/6: Ensuring Wine prefix is healthy..."
+            setup_wine_prefix
             [ "$FAST_MODE" != true ] && sleep 0.3
 
             # Step 4: Windows dependencies
