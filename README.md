@@ -5,8 +5,8 @@ This is an automated installer to run TouchDesigner on Linux.
 ![Screenshot](Screenshots/0.png)
 
 Choose your installation method:
-- **Automated Installation** — Script one-liner, all-in-one setup
-- **Manual Installation** — Step-by-step setup with Bottles
+- **Automated Installation** : Script one-liner, all-in-one setup
+- **Manual Installation** : Step-by-step setup with Bottles
 
 ---
 
@@ -45,7 +45,7 @@ The script is idempotent, so it is safe to run it multiple times. It skips alrea
 
 **Expected duration:** 50–60 min on first run.
 
-The longest step is the TouchDesigner `.exe` installation itself — expect ~30 min for that step alone.
+The longest step is the TouchDesigner `.exe` installation itself. Expect ~30 min for that step alone.
 
 First launch of TouchDesigner can take 1–2 min.
 
@@ -79,7 +79,7 @@ Run the installer again and choose **Uninstall**. This removes the runner, prefi
 ---
 
 <details>
-<summary><b>🍾 Manual Installation (via Bottles)</b></summary>
+<summary><b>Manual Installation (via Bottles)</b></summary>
 
 
 
@@ -301,10 +301,6 @@ update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 ### 5. Font fix
 ![Flatseal optional setup](Screenshots/6.png)
 
-Built with care.
-
-Iswad
-
 </details>
 
 ---
@@ -331,3 +327,11 @@ Iswad
 - Wayland is strongly recommended (X11 may cause launch issues or black screen)
 - Performance may vary depending on hardware and driver setup.
 - Overall, my experience was smoother than on Windows, with better performance and a much cooler-running machine (gaming laptop) due to Linux optimizations.
+
+---
+
+<div align="center">
+
+Built with care — **Iswad**
+
+</div>
