@@ -4,15 +4,14 @@ This is an automated installer to run TouchDesigner on Linux.
 
 ![Screenshot](Screenshots/0.png)
 
-Choose your installation method:
-- **Automated Installation** : Script one-liner, all-in-one setup
-- **Manual Installation** : Step-by-step setup with Bottles
+### Choose your installation method:
+*   [⚡ **Automated Installation** (Recommended)](#automated-installation-recommended) : Script one-liner, all-in-one setup.
+*   [**Manual Installation** (via Bottles)](#manual-installation-via-bottles) : Step-by-step setup for advanced users.
 
 ---
 
 <details open>
-<summary><b>⚡ Automated Installation (Recommended)</b></summary>
-
+<summary id="automated-installation-recommended"><b>⚡ Automated Installation (Recommended)</b></summary>
 
 ![Screenshot](Screenshots/Script_Preview.png)
 
@@ -87,8 +86,7 @@ Run the installer again and choose **Uninstall**. This removes the runner, prefi
 </details>
 
 <details>
-<summary><b>Manual Installation (via Bottles)</b></summary>
-
+<summary id="manual-installation-via-bottles"><b>Manual Installation (via Bottles)</b></summary>
 
 
 TouchDesigner is not officially supported on Linux, but it can run very well through Bottles **(Wayland)**.
