@@ -13,6 +13,7 @@ Choose your installation method:
 <details open>
 <summary><b>⚡ Automated Installation (Recommended)</b></summary>
 
+
 ![Screenshot](Screenshots/Script_Preview.png)
 
 ### Prerequisites
