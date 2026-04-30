@@ -5,16 +5,18 @@ This is an automated installer to run TouchDesigner on Linux.
 ![Screenshot](Screenshots/0.png)
 
 Choose your installation method:
-- **[Automated Installation](#automated-installation)** : Script one-liner, all-in-one setup
-- **[Manual Installation](#manual-installation-via-bottles)** : Manual setup with Bottles
+- **Automated Installation** — Script one-liner, all-in-one setup
+- **Manual Installation** — Step-by-step setup with Bottles
 
 ---
 
-## Automated Installation
+<details open>
+<summary><b>⚡ Automated Installation (Recommended)</b></summary>
+
 
 ### Prerequisites
 
-> **NVIDIA users:** Install your GPU driver before running the script. Reboot after.
+> **NVIDIA users:** Please install your GPU driver before running the script. Reboot after.
 
 ### Install
 
@@ -22,13 +24,32 @@ Choose your installation method:
 curl -sSL https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/install.sh | bash
 ```
 
-The script is idempotent — safe to run multiple times. It skips already-installed components and can be used for updates or repairs.
+To run in debug mode (verbose logs for bug reports):
+
+```bash
+DEBUG=true bash <(curl -sSL https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/install.sh)
+```
+
+The script is idempotent, so it is safe to run it multiple times. It skips already-installed components and can be used for updates or repairs.
 
 **What it does:** detects your distro, installs system packages, downloads a Soda Wine runner, sets up a Wine prefix, installs Windows dependencies via Winetricks, lets you pick a TD version, and creates a launcher with optional desktop integration.
 
-**Supported distros:** Arch · Ubuntu/Debian · Fedora · openSUSE
+**Supported distros:**
 
-**Expected duration:** 50–60 min on first run. First launch of TouchDesigner can take 1–2 min. This is normal.
+| Family | Examples |
+| --- | --- |
+| Arch-based | Arch, CachyOS, Manjaro… |
+| Debian/Ubuntu-based | Ubuntu, Mint, Pop!_OS… |
+| Fedora-based | Fedora, RHEL… |
+| openSUSE-based | Leap, Tumbleweed… |
+
+**Expected duration:** 50–60 min on first run.
+
+The longest step is the TouchDesigner `.exe` installation itself — expect ~30 min for that step alone.
+
+First launch of TouchDesigner can take 1–2 min.
+
+This is normal.
 
 ### Useful Paths
 
@@ -41,21 +62,25 @@ The script is idempotent — safe to run multiple times. It skips already-instal
 
 ### Troubleshooting
 
-**No display / installer GUI fails** — Run from a graphical session with `DISPLAY` or `WAYLAND_DISPLAY` set.
+**No display / installer GUI fails** : Run from a graphical session with `DISPLAY` or `WAYLAND_DISPLAY` set.
 
-**Version list fetch fails** — The script falls back to a curated list automatically.
+**Version list fetch fails** : The script falls back to a curated list automatically.
 
-**Long dependency phase** — The Windows dependency step is often slow and quiet. Just wait.
+**Long dependency phase** : The Windows dependency step is often slow and quiet. Just wait.
 
-**Duplicate menu entry** — Remove stale `.desktop` files in `~/.local/share/applications` and run `update-desktop-database`.
+**Duplicate menu entry** : Remove stale `.desktop` files in `~/.local/share/applications` and run `update-desktop-database`.
 
 ### Uninstall
 
 Run the installer again and choose **Uninstall**. This removes the runner, prefix, launcher, and all desktop entries created by the script.
 
+</details>
+
 ---
 
-## Manual Installation (via Bottles)
+<details>
+<summary><b>🍾 Manual Installation (via Bottles)</b></summary>
+
 
 
 TouchDesigner is not officially supported on Linux, but it can run very well through Bottles **(Wayland)**.
@@ -279,6 +304,8 @@ update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 Built with care.
 
 Iswad
+
+</details>
 
 ---
 
