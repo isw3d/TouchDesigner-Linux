@@ -14,85 +14,44 @@ Choose your installation method:
 
 ### Prerequisites
 
-**NVIDIA GPU users:** Install the NVIDIA driver before running the installer.
+> **NVIDIA users:** Install your GPU driver before running the script. Reboot after.
 
-### Quick Install
+### Install
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/install.sh | bash
 ```
 
-**Note:** The script is idempotent, you can run it multiple times safely. It skips already-installed components and can be used for updates or repairs.
+The script is idempotent — safe to run multiple times. It skips already-installed components and can be used for updates or repairs.
 
-This script installs system dependencies, Wine runner, Winetricks components, TouchDesigner launcher, and optional desktop integration.
+**What it does:** detects your distro, installs system packages, downloads a Soda Wine runner, sets up a Wine prefix, installs Windows dependencies via Winetricks, lets you pick a TD version, and creates a launcher with optional desktop integration.
 
-#### What The Installer Does
+**Supported distros:** Arch · Ubuntu/Debian · Fedora · openSUSE
 
-1. Detects distro and package manager.
-2. Installs required Linux packages.
-3. Downloads and configures Soda Wine runner.
-4. Initializes a dedicated Wine prefix.
-5. Installs Windows dependencies with Winetricks.
-6. Lets you choose a TouchDesigner version and run the installer.
-7. Creates launcher, desktop shortcut, app-menu entry, and optional .toe association.
-
-### Supported Distros
-
-The script autodetects and supports package installation on:
-
-- Arch-based (pacman)
-- Ubuntu/Debian-based (apt)
-- Fedora/RHEL-based (dnf)
-- openSUSE/SUSE-based (zypper)
-
-### Runtime Expectations
-
-- Initial full setup can be long. It can take around 50-60 minutes depending on network and machine speed.
-- Running TouchDesigner installer itself is the slowest task in this install.
-- First launch of TouchDesigner can take 1 to 2 minutes.
-
-This is all normal.
+**Expected duration:** 50–60 min on first run. First launch of TouchDesigner can take 1–2 min. This is normal.
 
 ### Useful Paths
 
-- Launcher script: ~/.local/bin/launch-touchdesigner.sh
-- Desktop shortcut: ~/Desktop/TouchDesigner.desktop
-- App menu entry: ~/.local/share/applications/touchdesigner.desktop
-- File association entry: ~/.local/share/applications/touchdesigner-file.desktop
-- Wine prefix + assets base: ~/.local/share/touchdesigner-linux
-- Optional font fix file: ~/.local/share/touchdesigner-linux/wine_ui_fixes.tox
+| Path | Description |
+| --- | --- |
+| `~/.local/bin/launch-touchdesigner.sh` | Launcher script |
+| `~/.local/share/touchdesigner-linux/` | Wine prefix + assets |
+| `~/.local/share/touchdesigner-linux/wine_ui_fixes.tox` | Font fix file |
+| `~/.local/share/applications/touchdesigner.desktop` | App menu entry |
 
 ### Troubleshooting
 
-#### No display / installer GUI fails
+**No display / installer GUI fails** — Run from a graphical session with `DISPLAY` or `WAYLAND_DISPLAY` set.
 
-Symptoms include Wine window creation errors.
+**Version list fetch fails** — The script falls back to a curated list automatically.
 
-Check that you run from a graphical session with DISPLAY or WAYLAND_DISPLAY set.
+**Long dependency phase** — The Windows dependency step is often slow and quiet. Just wait.
 
-#### Version list fetch fails
-
-If the Derivative website is slow/unreachable, the script falls back to a curated list of known versions automatically.
-
-#### Long dependency phase
-
-If output seems quiet during Windows dependency installation, wait: the step is often long and expected.
-
-#### Duplicate menu entry
-
-The .toe association entry is hidden from app menu by default (NoDisplay=true). If old duplicates remain, remove stale .desktop files in ~/.local/share/applications and refresh desktop database.
-
-### File Association Behavior
-
-- The launcher accepts file URIs and normal paths.
-- .toe association uses %u and the launcher handles path conversion.
+**Duplicate menu entry** — Remove stale `.desktop` files in `~/.local/share/applications` and run `update-desktop-database`.
 
 ### Uninstall
 
-Run installer again and choose Uninstall.
-
-This removes runner, prefix, launcher, desktop entries, and file association files created by this script.
-______
+Run the installer again and choose **Uninstall**. This removes the runner, prefix, launcher, and all desktop entries created by the script.
 
 ---
 
