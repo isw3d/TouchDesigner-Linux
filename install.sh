@@ -810,7 +810,8 @@ install_packages() {
                 libXxf86vm libXxf86vm.i686 \
                 mesa-libGL mesa-libGL.i686 mesa-libGLU mesa-libGLU.i686 mesa-libEGL mesa-libEGL.i686 \
                 glib2 glib2.i686 \
-                mesa-vulkan-drivers.i686; then
+                mesa-vulkan-drivers.i686
+        then
                 print_error "Failed to install required packages"
                 print_info "Try: sudo dnf upgrade --refresh"
                 exit 1
@@ -820,10 +821,10 @@ install_packages() {
             print_info "Installing required packages..."
             local -a zypper_packages=(
                 curl wget tar xz cabextract unzip p7zip
-                Mesa-demo-x
                 libvulkan1 libvulkan1-32bit vulkan-tools
             )
 
+            append_first_zypper_package zypper_packages Mesa-demo-x mesa-demo-x || true
             append_first_zypper_package zypper_packages libglib-2_0-0 glib2 || true
             append_first_zypper_package zypper_packages libglib-2_0-0-32bit glib2-32bit || true
             append_first_zypper_package zypper_packages libX11-6 || true
