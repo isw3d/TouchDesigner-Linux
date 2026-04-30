@@ -27,7 +27,7 @@ curl -sSL https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/insta
 To run in debug mode (verbose logs for bug reports):
 
 ```bash
-DEBUG=true bash <(curl -sSL https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/install.sh)
+curl -sSL https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/install.sh | DEBUG=true bash
 ```
 
 The script is idempotent, it is safe to run multiple times. It skips already-installed components and can be used for updates or repairs.
