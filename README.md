@@ -47,7 +47,7 @@ The script is idempotent, it is safe to run multiple times. It skips already-ins
 | openSUSE-based | Leap, Tumbleweed… |
 
 
-**Expected duration:** 50–60 min on first run.
+**Expected duration:** 40–60 min on first run.
 
 > ⏳ The longest step is the TouchDesigner `.exe` installation. Expect ~30 min for that step alone.
 >
