@@ -713,6 +713,11 @@ install_packages() {
                 mesa-utils \
                 vulkan-tools vulkan-icd-loader lib32-vulkan-icd-loader \
                 lib32-glib2 lib32-gcc-libs lib32-libx11 libx11 \
+                lib32-libxext lib32-libxrender lib32-libxrandr \
+                lib32-libxi lib32-libxcursor lib32-libxfixes \
+                lib32-libxinerama lib32-libxxf86vm lib32-libxcomposite \
+                lib32-libunwind lib32-gnutls \
+                lib32-freetype2 lib32-fontconfig lib32-alsa-lib \
                 xorg-xwayland; then
                 print_error "Failed to install packages. Try: sudo pacman -Syu"
                 exit 1
@@ -881,6 +886,65 @@ install_packages() {
     print_success "System packages installed"
 }
 
+check_arch_runtime_dependencies() {
+    if [ "$PKG_MANAGER" != "pacman" ] || ! command -v pacman >/dev/null 2>&1; then
+        return 0
+    fi
+
+    local -a required_packages=(
+        xorg-xwayland
+        vulkan-icd-loader
+        lib32-vulkan-icd-loader
+        lib32-glib2
+        lib32-gcc-libs
+        lib32-libx11
+        lib32-libxext
+        lib32-libxrender
+        lib32-libxrandr
+        lib32-libxi
+        lib32-libxcursor
+        lib32-libxfixes
+        lib32-libxinerama
+        lib32-libxxf86vm
+        lib32-libxcomposite
+        lib32-libunwind
+        lib32-gnutls
+        lib32-freetype2
+        lib32-fontconfig
+        lib32-alsa-lib
+    )
+
+    if command -v nvidia-smi >/dev/null 2>&1; then
+        required_packages+=(lib32-libglvnd lib32-nvidia-utils)
+    fi
+
+    local -a missing_packages=()
+    local pkg
+    for pkg in "${required_packages[@]}"; do
+        if ! pacman -Q "$pkg" >/dev/null 2>&1; then
+            missing_packages+=("$pkg")
+        fi
+    done
+
+    if [ "${#missing_packages[@]}" -eq 0 ]; then
+        print_success "Arch runtime dependency check passed"
+        return 0
+    fi
+
+    print_warning "Arch runtime pre-check found missing packages"
+    print_info "Attempting to install missing packages now..."
+
+    if run_with_progress 4 sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
+        print_success "Arch runtime dependencies repaired"
+        return 0
+    fi
+
+    print_error "Unable to install required Arch runtime packages"
+    print_info "Ensure [multilib] is enabled in /etc/pacman.conf and retry with:"
+    print_info "sudo pacman -S --needed ${missing_packages[*]}"
+    exit 1
+}
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # WINE RUNNER SETUP
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -975,6 +1039,12 @@ setup_wine_prefix() {
             if [ "$PKG_MANAGER" = "dnf" ]; then
                 print_info "On Fedora, install missing runtime libs and retry:"
                 print_info "sudo dnf install -y libunwind libunwind.i686 glibc glibc.i686 libgcc libgcc.i686 libstdc++ libstdc++.i686 gnutls gnutls.i686 vulkan-loader vulkan-loader.i686 xorg-x11-server-Xwayland"
+            elif [ "$PKG_MANAGER" = "pacman" ]; then
+                print_info "On Arch-based distros, install missing runtime libs and retry:"
+                print_info "sudo pacman -S --needed xorg-xwayland vulkan-icd-loader lib32-vulkan-icd-loader lib32-glib2 lib32-gcc-libs lib32-libx11 lib32-libxext lib32-libxrender lib32-libxrandr lib32-libxi lib32-libxcursor lib32-libxfixes lib32-libxinerama lib32-libxxf86vm lib32-libxcomposite lib32-libunwind lib32-gnutls lib32-freetype2 lib32-fontconfig lib32-alsa-lib"
+                if command -v nvidia-smi >/dev/null 2>&1; then
+                    print_info "NVIDIA users may also need: sudo pacman -S --needed lib32-libglvnd lib32-nvidia-utils"
+                fi
             else
                 print_info "On Ubuntu/Debian, install missing runtime libs and retry:"
                 print_info "sudo dpkg --add-architecture i386 && sudo apt-get update"
@@ -1090,6 +1160,12 @@ install_windows_deps() {
             "$RUNNER_DIR/bin/wine64" cmd.exe /c echo %AppData% 2>/dev/null | tr -d '\r' | tail -n 1)
         if [ -z "$appdata_check" ] || printf "%s" "$appdata_check" | grep -q '^%AppData%$'; then
             print_error "Wine runtime is still unhealthy after prefix repair (%AppData% empty)"
+            if [ "$PKG_MANAGER" = "pacman" ]; then
+                print_info "Arch fix: sudo pacman -S --needed xorg-xwayland vulkan-icd-loader lib32-vulkan-icd-loader lib32-glib2 lib32-gcc-libs lib32-libx11 lib32-libxext lib32-libxrender lib32-libxrandr lib32-libxi lib32-libxcursor lib32-libxfixes lib32-libxinerama lib32-libxxf86vm lib32-libxcomposite lib32-libunwind lib32-gnutls lib32-freetype2 lib32-fontconfig lib32-alsa-lib"
+                if command -v nvidia-smi >/dev/null 2>&1; then
+                    print_info "Arch NVIDIA fix: sudo pacman -S --needed lib32-libglvnd lib32-nvidia-utils"
+                fi
+            fi
             print_info "Try rerunning with: TD_BASE_DIR=/var/tmp/$USER/touchdesigner-linux bash install.sh"
             exit 1
         fi
@@ -1391,6 +1467,8 @@ install_touchdesigner() {
         print_error "Wine runtime font library is missing (FreeType/fontconfig)"
         if [ "$PKG_MANAGER" = "dnf" ]; then
             print_info "On Fedora, run: sudo dnf install -y freetype freetype.i686 fontconfig fontconfig.i686"
+        elif [ "$PKG_MANAGER" = "pacman" ]; then
+            print_info "On Arch-based distros, run: sudo pacman -S --needed freetype2 fontconfig lib32-freetype2 lib32-fontconfig"
         elif [ "$PKG_MANAGER" = "apt" ]; then
             print_info "On Ubuntu/Debian, run: sudo apt-get install -y libfreetype6 libfreetype6:i386 libfontconfig1 libfontconfig1:i386"
         fi
@@ -1400,6 +1478,7 @@ install_touchdesigner() {
         print_error "Installer GUI could not start due to display/GPU access issues"
         print_info "Current env: DISPLAY='${DISPLAY:-unset}', WAYLAND_DISPLAY='${WAYLAND_DISPLAY:-unset}'"
         print_info "Recommended fix on Arch/CachyOS: sudo pacman -S --needed xorg-xwayland vulkan-icd-loader vulkan-tools"
+        print_info "Arch NVIDIA 32-bit runtime: sudo pacman -S --needed lib32-libglvnd lib32-nvidia-utils"
         print_info "Then relogin and retry."
     fi
 
@@ -1885,6 +1964,7 @@ main() {
                 exit 1
             fi
             install_packages
+            check_arch_runtime_dependencies
             check_graphics
             [ "$FAST_MODE" != true ] && sleep 0.3
 
