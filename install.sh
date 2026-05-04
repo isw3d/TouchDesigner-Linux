@@ -553,7 +553,7 @@ show_main_menu() {
     printf "\n${BOLD}${PRIMARY}WHAT YOU GET:${NC}\n\n"
     print_list_item "Runner" "Soda Wine 9.0-1 (standalone, no Bottles)"
     print_list_item "GPU" "DXVK $DXVK_VERSION (DirectX → Vulkan)"
-    print_list_item "Font" "All Windows fonts (allfonts)"
+    print_list_item "Font" "Microsoft core fonts (corefonts)"
     print_list_item "App" "Latest TouchDesigner version installation"
 
     # Installation options
@@ -1147,7 +1147,7 @@ install_dxvk() {
 }
 
 install_windows_deps() {
-    print_info "Installing Windows dependencies (allfonts, d3dx11_43, vcrun2019)..."
+    print_info "Installing Windows dependencies (corefonts, d3dx11_43, vcrun2019)..."
     print_info "This can take several minutes depending on your network and disk speed."
 
     local appdata_check
@@ -1214,7 +1214,7 @@ install_windows_deps() {
     WINE="$RUNNER_DIR/bin/wine64" \
     WINESERVER="$RUNNER_DIR/bin/wineserver" \
     WINEDEBUG=-all \
-        bash "$WINETRICKS_BIN" -q allfonts d3dx11_43 vcrun2019 >"$wt_log" 2>&1
+        bash "$WINETRICKS_BIN" -q corefonts d3dx11_43 vcrun2019 >"$wt_log" 2>&1
     wt_status=$?
     set -e
 

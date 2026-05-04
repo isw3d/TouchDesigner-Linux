@@ -154,7 +154,7 @@ Inside the bottle:
 
 1. Go to **Dependencies**.
 2. Install:
-	- `allfonts`
+	- `corefonts`
 	- `d3dx11` (latest version)
 
 ---
