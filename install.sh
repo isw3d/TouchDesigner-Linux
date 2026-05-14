@@ -80,6 +80,7 @@ refresh_runtime_paths
 SODA_URL="https://github.com/bottlesdevs/wine/releases/download/soda-9.0-1/soda-9.0-1-x86_64.tar.xz"
 DXVK_VERSION="2.4"
 DXVK_URL="https://github.com/doitsujin/dxvk/releases/download/v${DXVK_VERSION}/dxvk-${DXVK_VERSION}.tar.gz"
+SCRIPT_VERSION="v1.1.0"
 REPO_ASSETS_BASE_URL="${REPO_ASSETS_BASE_URL:-https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/Assets}"
 SODA_SHA256="${SODA_SHA256:-}"
 DXVK_SHA256="${DXVK_SHA256:-}"
@@ -131,7 +132,7 @@ print_hr() {
 print_banner() {
     [ -t 1 ] && clear
     print_hr
-    printf "${BOLD}${PRIMARY}TouchDesigner Linux installer${NC}\n"
+    printf "${BOLD}${PRIMARY}TouchDesigner Linux installer ${ACCENT}%s${NC}\n" "$SCRIPT_VERSION"
     printf "${SECONDARY}By Iswad${NC}\n"
     print_hr
 }
