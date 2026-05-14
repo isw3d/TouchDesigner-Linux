@@ -1828,6 +1828,23 @@ if [ -n "\$1" ]; then
         INPUT_PATH="\${INPUT_PATH#file://}"
         INPUT_PATH="\$(python3 -c "import sys, urllib.parse; print(urllib.parse.unquote(sys.argv[1]))" "\$INPUT_PATH" 2>/dev/null || echo "\$INPUT_PATH")"
     fi
+    # If the .toe is a starter template, copy it to ~/Documents to avoid overwriting the original
+    STARTER_DIR="\$(dirname "\$RUNNER_DIR")/../touchdesigner-linux/starter-projects"
+    STARTER_DIR="\$(realpath "\$STARTER_DIR" 2>/dev/null || echo "")"
+    INPUT_REAL="\$(realpath "\$INPUT_PATH" 2>/dev/null || echo "\$INPUT_PATH")"
+    if [ -n "\$STARTER_DIR" ] && [[ "\$INPUT_REAL" == "\$STARTER_DIR"/* ]]; then
+        DEST_DIR="\$HOME/Documents/TouchDesigner"
+        mkdir -p "\$DEST_DIR"
+        DEST_FILE="\$DEST_DIR/New-Project.toe"
+        if [ ! -f "\$DEST_FILE" ]; then
+            cp "\$INPUT_PATH" "\$DEST_FILE"
+        else
+            TIMESTAMP="\$(date +%Y%m%d-%H%M%S)"
+            DEST_FILE="\$DEST_DIR/New-Project-\$TIMESTAMP.toe"
+            cp "\$INPUT_PATH" "\$DEST_FILE"
+        fi
+        INPUT_PATH="\$DEST_FILE"
+    fi
     # Map Linux path to Wine Z: drive
     WINE_PATH="z:\${INPUT_PATH//\//\\\\}"
     EXTRA_ARGS=("\$WINE_PATH")
