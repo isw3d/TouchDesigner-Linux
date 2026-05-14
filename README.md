@@ -332,6 +332,8 @@ update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 | TD - Bitwig | ✅ Working | Confirmed working |
 | Video Device In | ⚠️ Partial | USB Webcams work on first init, but Wine "locks" the device. Replug or TD restart required to reset |
 | NVIDIA TOP | ❌ Not working | Background, Flow and Denoise fail to init CUDA/TensorRT in this environment |
+| Engine COMP | ❌ Not working | The background process may start (PID assigned), but the IPC bridge fails to initialize — `.tox` files do not load and textures do not cook. Workaround: move your logic into a Base or Container COMP to run within the main process |
+| WebRender TOP | ❌ Not working | Web pages do not render (no errors thrown). Known upstream limitation with Chromium-based components in Wine environments |
 | External installs / integrations | ❓ Not fully tested | Third-party installs, Kinect, extra plugins, and advanced external production pipelines still need broader testing |
 
 ---
