@@ -35,6 +35,8 @@ The script is idempotent, it is safe to run multiple times. It skips already-ins
 
 **What it does:** detects your distro, installs system packages, downloads a Soda Wine runner, sets up a Wine prefix, installs Windows dependencies via Winetricks, lets you pick a TD version, and creates a launcher with optional desktop integration.
 
+The installer also adds a ready-to-use starter project: `TouchDesigner Starter`, which already includes the font fix setup.
+
 ---
 
 **Supported distros:**
@@ -68,6 +70,7 @@ Run the installer again and choose **Uninstall**. This removes the runner, prefi
 | `~/.local/bin/launch-touchdesigner.sh` | Launcher script |
 | `~/.local/share/touchdesigner-linux/` | Wine prefix + assets |
 | `~/.local/share/touchdesigner-linux/wine_ui_fixes.tox` | Font fix file |
+| `~/.local/share/touchdesigner-linux/starter-projects/TouchDesigner-Starter.toe` | Ready-to-use starter project |
 | `~/.local/share/applications/touchdesigner.desktop` | App menu entry |
 
 ---
@@ -191,6 +194,8 @@ Some UI elements may appear blank due to font rendering issues.
 2. Click **Fix Now**.
 
 Fonts will display correctly as long as the `.tox` file is present in the project.
+
+If you prefer a preconfigured starting point, open **TouchDesigner Starter** instead of creating a project from scratch.
 
 ---
 

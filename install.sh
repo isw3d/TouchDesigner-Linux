@@ -103,6 +103,7 @@ NON_INTERACTIVE=${NON_INTERACTIVE:-false}
 ALLOW_HEADLESS_INSTALL=${ALLOW_HEADLESS_INSTALL:-false}
 INSTALL_CHOICE=${INSTALL_CHOICE:-1}
 TD_VERSION=${TD_VERSION:-latest}
+TD_INSTALLER_PATH=${TD_INSTALLER_PATH:-}
 FORCE_UNINSTALL=${FORCE_UNINSTALL:-false}
 DEBUG=${DEBUG:-false}
 TRACE=${TRACE:-false}
@@ -169,6 +170,32 @@ print_info() {
 
 print_warning() {
     printf "${DIM}•${NC} %s\n" "$1"
+}
+
+print_font_fix_instructions() {
+    printf "\n\n${DIM}────────────────────────────────────────────${NC}\n"
+    printf "${BOLD}${PRIMARY}PLEASE READ:${NC}\n"
+    printf "\n"
+    printf "${BOLD}${PRIMARY}Font/UI Fix (.tox)${NC}\n"
+    printf "${DIM}If text is missing, tiny, or broken in TouchDesigner, apply this once per project.${NC}\n"
+    printf "\n"
+    printf "${PRIMARY}1.${NC} In TouchDesigner, open your project (.toe)\n"
+    printf "${PRIMARY}2.${NC} Open Palette > ${BOLD}My Components${NC}\n"
+    printf "${PRIMARY}3.${NC} Right-click in My Components and click ${BOLD}Refresh Folder${NC}\n"
+    printf "${PRIMARY}4.${NC} Drag and drop ${BOLD}wine_ui_fixes.tox${NC} into your network\n"
+    printf "${PRIMARY}5.${NC} Click ${BOLD}Enable${NC} on the .tox component\n"
+    printf "${PRIMARY}6.${NC} Save your project to keep the fix\n"
+    printf "${DIM}────────────────────────────────────────────${NC}\n"
+}
+
+print_starter_project_instructions() {
+    printf "\n${DIM}────────────────────────────────────────────${NC}\n"
+    printf "${BOLD}${PRIMARY}TouchDesigner Starter${NC}\n"
+    printf "${DIM}A preconfigured project is available for a quick start.${NC}\n"
+    printf "${PRIMARY}•${NC} Open ${BOLD}TouchDesigner Starter${NC} to start from a ready-made project\n"
+    printf "${PRIMARY}•${NC} It already includes the font fix setup\n"
+    printf "${PRIMARY}•${NC} If you like it, set it as TouchDesigner's Startup File inside the app\n"
+    printf "${DIM}────────────────────────────────────────────${NC}\n"
 }
 
 prompt_yes_no() {
@@ -350,7 +377,7 @@ ensure_exec_capable_base_dir() {
         return
     fi
 
-    print_warning "Current install path is not exec-capable: $TD_BASE_DIR"
+    printf "${SECONDARY}▸${NC} Installation location issue: the chosen path doesn't support running applications.\n"
 
     local fallback
     for fallback in "$HOME/.cache/touchdesigner-linux" "/var/tmp/$USER/touchdesigner-linux"; do
@@ -358,12 +385,12 @@ ensure_exec_capable_base_dir() {
         if ! path_is_noexec "$fallback" && path_allows_exec "$fallback"; then
             TD_BASE_DIR="$fallback"
             refresh_runtime_paths
-            print_warning "Switched installation path to exec-capable location: $TD_BASE_DIR"
+            print_info "Switched installation path to a compatible location."
             return
         fi
     done
 
-    print_error "Could not find an exec-capable filesystem for the Wine prefix"
+    print_error "Installation location error: please choose a different drive or folder"
     print_info "Set TD_BASE_DIR to a path on an exec-mounted filesystem, then rerun installer"
     print_info "Example: TD_BASE_DIR=/var/tmp/$USER/touchdesigner-linux bash install.sh"
     exit 1
@@ -551,17 +578,18 @@ show_main_menu() {
 
     # What you get list
     printf "\n${BOLD}${PRIMARY}WHAT YOU GET:${NC}\n\n"
-    print_list_item "Runner" "Soda Wine 9.0-1 (standalone, no Bottles)"
-    print_list_item "GPU" "DXVK $DXVK_VERSION (DirectX → Vulkan)"
+    print_list_item "Runner" "Soda Wine 9.0-1 (standalone)"
+    print_list_item "GPU" "Vulkan acceleration (3D graphics)"
     print_list_item "Font" "Microsoft core fonts (corefonts)"
     print_list_item "App" "Latest TouchDesigner version installation"
 
     # Installation options
     printf "\n${PRIMARY}INSTALLATION OPTIONS :${NC}\n\n"
-    printf "  1  Full install\n"
-    printf "${ACCENT}      • Run TouchDesigner on Linux without Bottles.${NC}\n"
-    printf "${ACCENT}      • Auto-configure Wine and required Windows components.${NC}\n"
-    printf "${ACCENT}      • Install DXVK for better graphics performance.${NC}\n"
+    printf "  1  Install\n"
+    printf "${ACCENT}      • Run TouchDesigner on Linux.${NC}\n"
+    printf "${ACCENT}      • Auto-configure compatibility components.${NC}\n"
+    printf "${ACCENT}      • GPU acceleration for better graphics performance.${NC}\n"
+    printf "${ACCENT}      • Install multiple TouchDesigner versions independently.${NC}\n"
     printf "\n"
     printf "${ACCENT}      -> Already installed? Re-run safely ! Completed steps will be skipped.${NC}\n"
     printf "\n"
@@ -577,6 +605,33 @@ show_main_menu() {
     fi
     choice=${choice:-1}
     choice=$(printf "%s" "$choice" | tr -d '[:space:]')
+}
+
+pick_local_installer_with_dialog() {
+    local selected_path=""
+
+    if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
+        return 1
+    fi
+
+    if command -v zenity >/dev/null 2>&1; then
+        selected_path=$(zenity --file-selection \
+            --title="Select TouchDesigner installer (.exe)" \
+            --filename="$DOWNLOAD_DIR/" \
+            --file-filter="Windows executable | *.exe" 2>/dev/null || true)
+    elif command -v kdialog >/dev/null 2>&1; then
+        selected_path=$(kdialog --getopenfilename "$DOWNLOAD_DIR/" "*.exe|Windows executable" 2>/dev/null || true)
+    elif command -v yad >/dev/null 2>&1; then
+        selected_path=$(yad --file-selection \
+            --title="Select TouchDesigner installer (.exe)" \
+            --filename="$DOWNLOAD_DIR/" \
+            --file-filter="Windows executable | *.exe" 2>/dev/null || true)
+    else
+        return 1
+    fi
+
+    [ -n "$selected_path" ] || return 1
+    printf "%s\n" "$selected_path"
 }
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -951,17 +1006,17 @@ check_arch_runtime_dependencies() {
 
 download_soda_runner() {
     if [ -f "$RUNNER_DIR/bin/wine64" ]; then
-        print_success "Soda Wine runner already installed"
+        print_success "Compatibility runtime already installed"
         return
     fi
 
-    print_info "Downloading Soda Wine 9.0-1 runner (~300MB)..."
+    print_info "Downloading Soda Wine runtime (~300MB)..."
     local tarball="$TD_BASE_DIR/soda-runner.tar.xz"
     mkdir -p "$TD_BASE_DIR"
     check_network_access "$SODA_URL" || true
 
     wget -q --show-progress -O "$tarball" "$SODA_URL" || {
-        print_error "Failed to download Soda Wine runner"
+        print_error "Failed to download compatibility runtime"
         rm -f "$tarball"
         exit 1
     }
@@ -971,7 +1026,7 @@ download_soda_runner() {
         exit 1
     }
 
-    print_info "Extracting Soda Wine runner..."
+    print_info "Extracting compatibility runtime..."
     mkdir -p "$RUNNER_DIR"
     tar -xJf "$tarball" -C "$RUNNER_DIR" --strip-components=1
     rm -f "$tarball"
@@ -1086,7 +1141,7 @@ download_winetricks() {
     mkdir -p "$TD_BASE_DIR"
     wget -q -O "$WINETRICKS_BIN" \
         "https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks" || {
-        print_error "Failed to download winetricks"
+        print_error "Failed to download system libraries"
         exit 1
     }
     chmod +x "$WINETRICKS_BIN"
@@ -1108,7 +1163,7 @@ install_dxvk() {
     local dxvk_tarball="$TD_BASE_DIR/dxvk.tar.gz"
     check_network_access "$DXVK_URL" || true
     wget -q --show-progress -O "$dxvk_tarball" "$DXVK_URL" || {
-        print_warning "Failed to download DXVK, skipping"
+        print_warning "Failed to download GPU acceleration, skipping (optional)"
         rm -f "$dxvk_tarball"
         return
     }
@@ -1147,7 +1202,7 @@ install_dxvk() {
 }
 
 install_windows_deps() {
-    print_info "Installing Windows dependencies (corefonts, d3dx11_43, vcrun2019)..."
+    print_info "Installing compatibility libraries..."
     print_info "This can take several minutes depending on your network and disk speed."
 
     local appdata_check
@@ -1248,6 +1303,7 @@ install_windows_deps() {
     print_success "Windows dependencies installed"
 }
 
+
 check_installation_status() {
     printf "\n${BOLD}${DIM}Installation Status Check${NC}\n\n"
 
@@ -1292,6 +1348,9 @@ download_touchdesigner() {
     )
     local selected=""
     local selected_version=""
+    local use_custom_installer=false
+    local custom_installer_path=""
+    local custom_label="Use local installer (.exe path)"
     local max_versions=10
     local td_html
     td_html=$(mktemp)
@@ -1340,6 +1399,27 @@ download_touchdesigner() {
     fi
 
     if [ "$NON_INTERACTIVE" = true ]; then
+        if [ -n "$TD_INSTALLER_PATH" ]; then
+            custom_installer_path="$TD_INSTALLER_PATH"
+            if [[ "$custom_installer_path" == ~/* ]]; then
+                custom_installer_path="$HOME/${custom_installer_path#~/}"
+            fi
+
+            if [ ! -f "$custom_installer_path" ]; then
+                print_error "TD_INSTALLER_PATH does not exist: $custom_installer_path"
+                exit 1
+            fi
+
+            if [[ ! "$custom_installer_path" =~ \.[Ee][Xx][Ee]$ ]]; then
+                print_warning "TD_INSTALLER_PATH does not end with .exe (continuing anyway)"
+            fi
+
+            TD_FILEPATH="$custom_installer_path"
+            TD_FILENAME="$(basename "$TD_FILEPATH")"
+            print_info "Non-interactive mode: using local installer $TD_FILEPATH"
+            return
+        fi
+
         if [ -n "$TD_VERSION" ] && [ "$TD_VERSION" != "latest" ]; then
             local found_version=false
             local v
@@ -1366,19 +1446,57 @@ download_touchdesigner() {
 
         local cursor=0
         local count="${#versions[@]}"
+        local total_count=$((count + 1))  # selectable items (versions + custom)
+
+        # Build set of already-installed version numbers
+        local -A _installed_versions=()
+        while IFS= read -r _iroot; do
+            local _iver
+            _iver="$(detect_touchdesigner_version "$_iroot" 2>/dev/null || true)"
+            [ -n "$_iver" ] && _installed_versions["$_iver"]=1
+        done < <(discover_touchdesigner_install_roots 2>/dev/null || true)
+
+        # Detect year boundaries: _sep_before[i]=year means print a separator before versions[i]
+        local -A _sep_before=()
+        local _sep_count=0
+        local _prev_year=""
+        local _vi
+        for _vi in "${!versions[@]}"; do
+            local _vyear="${versions[$_vi]%%.*}"
+            if [ "$_vyear" != "$_prev_year" ]; then
+                _sep_before[$_vi]="$_vyear"
+                _prev_year="$_vyear"
+                _sep_count=$((_sep_count + 1))
+            fi
+        done
+        # Total drawn lines = versions + separators + 1 (year sep before custom) + 1 (custom entry)
+        local draw_lines=$((count + _sep_count + 1 + 1))
 
         # Draw the list
         _draw_version_list() {
             local i
             for i in "${!versions[@]}"; do
+                # Year separator
+                if [[ -n "${_sep_before[$i]+x}" ]]; then
+                    printf "  ${DIM}── %s ──────────────────────────${NC}\n" "${_sep_before[$i]}"
+                fi
                 local label="${versions[$i]}"
                 [ "$i" -eq 0 ] && label="${versions[$i]} (Latest stable)"
+                local installed_tag=""
+                [[ -n "${_installed_versions[${versions[$i]}]+x}" ]] && installed_tag=" ${GREEN}✔ installed${NC}"
                 if [ "$i" -eq "$cursor" ]; then
-                    printf "  ${BOLD}${PRIMARY}▶  %-30s${NC}\n" "$label"
+                    printf "  ${BOLD}${PRIMARY}▶  %-30s${NC}%b\n" "$label" "$installed_tag"
                 else
-                    printf "  ${DIM}   %-30s${NC}\n" "$label"
+                    printf "  ${DIM}   %-30s${NC}%b\n" "$label" "$installed_tag"
                 fi
             done
+
+            printf "  ${DIM}──────────────────────────────────${NC}\n"
+            if [ "$cursor" -eq "$count" ]; then
+                printf "  ${BOLD}${PRIMARY}▶  %-30s${NC}\n" "$custom_label"
+            else
+                printf "  ${DIM}   %-30s${NC}\n" "$custom_label"
+            fi
         }
 
         _draw_version_list
@@ -1387,36 +1505,95 @@ download_touchdesigner() {
         tput civis 2>/dev/null || true
 
         while true; do
-            # Read one escape sequence
             local key
-            IFS= read -rsn1 key <"$INTERACTIVE_INPUT"
+            IFS= read -rsn1 key <"$INTERACTIVE_INPUT" || true
             if [[ "$key" == $'\x1b' ]]; then
                 local seq
-                IFS= read -rsn2 -t 0.1 seq <"$INTERACTIVE_INPUT"
+                IFS= read -rsn2 -t 0.1 seq <"$INTERACTIVE_INPUT" || true
                 key="${key}${seq}"
             fi
 
             case "$key" in
                 $'\x1b[A'|$'\x1b[D')  # Up or Left
-                    (( cursor > 0 )) && (( cursor-- )) || true
+                    if [ "$cursor" -gt 0 ]; then
+                        cursor=$((cursor - 1))
+                    else
+                        cursor=$((total_count - 1))
+                    fi
                     ;;
                 $'\x1b[B'|$'\x1b[C')  # Down or Right
-                    (( cursor < count - 1 )) && (( cursor++ )) || true
+                    if [ "$cursor" -lt $((total_count - 1)) ]; then
+                        cursor=$((cursor + 1))
+                    else
+                        cursor=0
+                    fi
                     ;;
                 '')  # Enter
                     break
                     ;;
             esac
 
-            # Redraw: move cursor up by count lines then redraw
-            tput cuu "$count" 2>/dev/null || printf "\033[${count}A"
+            # Redraw: move up by total drawn lines (versions + separators + custom)
+            tput cuu "$draw_lines" 2>/dev/null || printf "\033[${draw_lines}A"
             _draw_version_list
         done
 
         tput cnorm 2>/dev/null || true
         printf "\n"
 
-        selected_version="${versions[$cursor]}"
+        if [ "$cursor" -eq "$count" ]; then
+            use_custom_installer=true
+        else
+            selected_version="${versions[$cursor]}"
+        fi
+    fi
+
+    if [ "$use_custom_installer" = true ]; then
+        custom_installer_path="$(pick_local_installer_with_dialog || true)"
+        if [ -n "$custom_installer_path" ]; then
+            print_info "Selected from file picker: $custom_installer_path"
+        else
+            print_info "No file picker selection, falling back to manual path input"
+        fi
+
+        while true; do
+            if [ -z "$custom_installer_path" ]; then
+                printf "Path to TouchDesigner installer (.exe): "
+                if ! IFS= read -r custom_installer_path <"$INTERACTIVE_INPUT"; then
+                    custom_installer_path=""
+                fi
+            fi
+
+            custom_installer_path=$(printf "%s" "$custom_installer_path" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+
+            if [ -z "$custom_installer_path" ]; then
+                print_warning "Please provide a file path"
+                continue
+            fi
+
+            if [[ "$custom_installer_path" == ~/* ]]; then
+                custom_installer_path="$HOME/${custom_installer_path#~/}"
+            fi
+
+            if [ ! -f "$custom_installer_path" ]; then
+                print_warning "File not found: $custom_installer_path"
+                custom_installer_path=""
+                continue
+            fi
+
+            if [[ ! "$custom_installer_path" =~ \.[Ee][Xx][Ee]$ ]]; then
+                prompt_yes_no "File does not end with .exe, continue anyway?" "N"
+                if [ "$PROMPT_YES_NO_RESULT" != "Y" ]; then
+                    custom_installer_path=""
+                    continue
+                fi
+            fi
+
+            TD_FILEPATH="$custom_installer_path"
+            TD_FILENAME="$(basename "$TD_FILEPATH")"
+            print_success "Using local installer: $TD_FILEPATH"
+            return
+        done
     fi
 
     TD_URL="https://download.derivative.ca/TouchDesigner.$selected_version.exe"
@@ -1568,6 +1745,7 @@ find_touchdesigner_exe() {
     find "$WINE_PREFIX/drive_c" -type f -iname 'TouchDesigner.exe' 2>/dev/null | head -n 1
 }
 
+
 register_toe_mimetype() {
     local mime_dir="$HOME/.local/share/mime/packages"
     mkdir -p "$mime_dir"
@@ -1608,7 +1786,23 @@ find_touchdesigner_exe() {
     find "\$WINE_PREFIX/drive_c" -type f -iname 'TouchDesigner.exe' 2>/dev/null | head -n 1
 }
 
-TOUCHDESIGNER_EXE="\$(find_touchdesigner_exe)"
+# Support version-specific shortcuts via argument (--exe) or env override.
+TOUCHDESIGNER_EXE_OVERRIDE_ARG=""
+if [[ "\$1" == "--exe" ]] && [ -n "\$2" ]; then
+    TOUCHDESIGNER_EXE_OVERRIDE_ARG="\$2"
+    shift 2
+elif [[ "\$1" == --exe=* ]]; then
+    TOUCHDESIGNER_EXE_OVERRIDE_ARG="\${1#--exe=}"
+    shift
+fi
+
+if [ -n "\$TOUCHDESIGNER_EXE_OVERRIDE_ARG" ] && [ -f "\$TOUCHDESIGNER_EXE_OVERRIDE_ARG" ]; then
+    TOUCHDESIGNER_EXE="\$TOUCHDESIGNER_EXE_OVERRIDE_ARG"
+elif [ -n "\$TOUCHDESIGNER_EXE_OVERRIDE" ] && [ -f "\$TOUCHDESIGNER_EXE_OVERRIDE" ]; then
+    TOUCHDESIGNER_EXE="\$TOUCHDESIGNER_EXE_OVERRIDE"
+else
+    TOUCHDESIGNER_EXE="\$(find_touchdesigner_exe)"
+fi
 
 if [ -z "\$TOUCHDESIGNER_EXE" ]; then
     echo "Error: TouchDesigner.exe not found in Wine prefix."
@@ -1673,53 +1867,28 @@ install_optional_font_fix() {
 
 distribute_optional_font_fix() {
     local src="$TD_BASE_DIR/wine_ui_fixes.tox"
-    local host_docs="$HOME/Documents"
-    local host_target="$host_docs/TouchDesigner"
-    local wine_user_dir="$WINE_PREFIX/drive_c/users/$USER"
-    local wine_username="$USER"
-    local wine_desktop="$wine_user_dir/Desktop"
+    local wine_steamuser_dir="$WINE_PREFIX/drive_c/users/steamuser"
+    local wine_desktop="$wine_steamuser_dir/Desktop"
+    local wine_palette_dir="$wine_steamuser_dir/Documents/Derivative/Palette"
 
     [ -f "$src" ] || return 0
     OPTIONAL_FONT_FIX_LOCATIONS=""
     add_optional_font_fix_location "$src"
 
-    # Host-visible location for easy manual import.
-    mkdir -p "$host_target"
-    local host_fix_path="$host_target/wine_ui_fixes.tox"
-    if cp -f "$src" "$host_fix_path" 2>/dev/null; then
-        add_optional_font_fix_location "$host_fix_path"
-    fi
-
-    # Wine-visible locations for easy drag-and-drop inside TouchDesigner.
+    # Wine-visible locations requested by default TouchDesigner-Linux setup.
     if [ -d "$WINE_PREFIX/drive_c" ]; then
-        if [ ! -d "$wine_user_dir" ]; then
-            local detected_user_dir
-            detected_user_dir=$(find "$WINE_PREFIX/drive_c/users" -mindepth 1 -maxdepth 1 -type d \
-                ! -iname 'Public' ! -iname 'Default' ! -iname 'Default User' \
-                2>/dev/null | head -n 1)
-            if [ -n "$detected_user_dir" ]; then
-                wine_user_dir="$detected_user_dir"
-                wine_username="$(basename "$detected_user_dir")"
-                wine_desktop="$wine_user_dir/Desktop"
-            fi
-        fi
-
-        if [ -x "$RUNNER_DIR/bin/wine64" ]; then
-            local resolved_desktop=""
-
-            resolved_desktop=$(WINEPREFIX="$WINE_PREFIX" PATH="$RUNNER_DIR/bin:$PATH" \
-                "$RUNNER_DIR/bin/wine64" winepath -u "C:\\users\\$wine_username\\Desktop" 2>/dev/null | tr -d '\r')
-
-            if [ -n "$resolved_desktop" ] && [ -d "$resolved_desktop" ]; then
-                wine_desktop="$resolved_desktop"
-            fi
-        fi
-
         mkdir -p "$wine_desktop"
         local wine_desktop_fix_path="$wine_desktop/wine_ui_fixes.tox"
 
         if cp -f "$src" "$wine_desktop_fix_path" 2>/dev/null; then
             add_optional_font_fix_location "$wine_desktop_fix_path"
+        fi
+
+        mkdir -p "$wine_palette_dir"
+        local wine_palette_fix_path="$wine_palette_dir/wine_ui_fixes.tox"
+
+        if cp -f "$src" "$wine_palette_fix_path" 2>/dev/null; then
+            add_optional_font_fix_location "$wine_palette_fix_path"
         fi
     fi
 }
@@ -1786,11 +1955,11 @@ create_desktop_shortcut() {
 Version=1.0
 Type=Application
 Name=TouchDesigner
-Comment=Real-time Visual Programming Environment
-Exec=$LAUNCHER_PATH
+Comment=Open latest installed version (add wine_ui_fixes.tox for fonts)
+Exec="$LAUNCHER_PATH"
 Icon=$TD_ICON_PATH
 Terminal=false
-Categories=Graphics;Development;
+Categories=Graphics;
 DESKTOP
 
     trust_desktop_shortcut "$DESKTOP_DIR/TouchDesigner.desktop"
@@ -1820,11 +1989,11 @@ create_applications_shortcut() {
 Version=1.0
 Type=Application
 Name=TouchDesigner
-Comment=Real-time Visual Programming Environment
-Exec=$LAUNCHER_PATH
+Comment=Open latest installed version (add wine_ui_fixes.tox for fonts)
+Exec="$LAUNCHER_PATH"
 Icon=$TD_ICON_PATH
 Terminal=false
-Categories=Graphics;Development;
+Categories=Graphics;
 DESKTOP
 
     if command -v update-desktop-database >/dev/null 2>&1; then
@@ -1832,6 +2001,119 @@ DESKTOP
     fi
 
     print_success "Application menu entry created"
+}
+
+install_starter_project() {
+    local src
+    local dest_dir="$TD_BASE_DIR/starter-projects"
+    local dest="$dest_dir/TouchDesigner-Starter.toe"
+
+    mkdir -p "$dest_dir"
+
+    for src in "$SCRIPT_DIR/Assets/TouchDesigner_Font_Fixes.toe"; do
+        if [ -f "$src" ]; then
+            cp -f "$src" "$dest"
+            echo "$dest"
+            return 0
+        fi
+    done
+
+    rm -f "$dest"
+    return 1
+}
+
+create_starter_shortcuts() {
+    local starter_project="$1"
+
+    [[ $CREATE_SHORTCUT =~ ^[Yy]$ ]] || return 0
+    [ -f "$starter_project" ] || return 0
+
+    mkdir -p "$DESKTOP_DIR" "$APPLICATIONS_DIR"
+
+    cat > "$DESKTOP_DIR/TouchDesigner-Starter.desktop" << DESKTOP
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=TouchDesigner Starter
+Comment=Open the starter project with font fixes
+Exec="$LAUNCHER_PATH" "$starter_project"
+Icon=$TD_ICON_PATH
+Terminal=false
+Categories=Graphics;
+DESKTOP
+    trust_desktop_shortcut "$DESKTOP_DIR/TouchDesigner-Starter.desktop"
+
+    cat > "$APPLICATIONS_DIR/touchdesigner-starter.desktop" << DESKTOP
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=TouchDesigner Starter
+Comment=Open the starter project with font fixes
+Exec="$LAUNCHER_PATH" "$starter_project"
+Icon=$TD_ICON_PATH
+Terminal=false
+Categories=Graphics;
+DESKTOP
+
+    if command -v update-desktop-database >/dev/null 2>&1; then
+        update-desktop-database "$APPLICATIONS_DIR" >/dev/null 2>&1 || true
+    fi
+
+    print_success "Starter project shortcut created"
+}
+
+create_versioned_shortcuts() {
+    [[ $CREATE_SHORTCUT =~ ^[Yy]$ ]] || return 0
+
+    local install_root td_exe version label safe_version
+    local any_created=false
+
+    while IFS= read -r install_root; do
+        td_exe="$install_root/bin/TouchDesigner.exe"
+        [ -f "$td_exe" ] || td_exe="$install_root/TouchDesigner.exe"
+        [ -f "$td_exe" ] || continue
+
+        version="$(detect_touchdesigner_version "$install_root")"
+        if [ -z "$version" ]; then
+            version="$(basename "$install_root")"
+        fi
+
+        label="TouchDesigner $version"
+        safe_version="${version//[^a-zA-Z0-9._-]/-}"
+
+        mkdir -p "$DESKTOP_DIR"
+        cat > "$DESKTOP_DIR/TouchDesigner-${safe_version}.desktop" << VDESKTOP
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=$label
+Comment=Version $version (Wine on Linux)
+Exec="$LAUNCHER_PATH" --exe "$td_exe"
+Icon=$TD_ICON_PATH
+Terminal=false
+Categories=Graphics;
+VDESKTOP
+        trust_desktop_shortcut "$DESKTOP_DIR/TouchDesigner-${safe_version}.desktop"
+
+        mkdir -p "$APPLICATIONS_DIR"
+        cat > "$APPLICATIONS_DIR/touchdesigner-${safe_version}.desktop" << VAPPS
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=$label
+Comment=Version $version (Wine on Linux)
+Exec="$LAUNCHER_PATH" --exe "$td_exe"
+Icon=$TD_ICON_PATH
+Terminal=false
+Categories=Graphics;
+VAPPS
+        any_created=true
+        print_success "Version shortcut created: $label"
+    done < <(discover_touchdesigner_install_roots)
+
+    if [ "$any_created" = true ] && command -v update-desktop-database >/dev/null 2>&1; then
+        update-desktop-database "$APPLICATIONS_DIR" >/dev/null 2>&1 || true
+    fi
 }
 
 associate_toe_files() {
@@ -1845,12 +2127,12 @@ associate_toe_files() {
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=TouchDesigner (Project File)
-Exec=$LAUNCHER_PATH %u
+Name=TouchDesigner Project (.toe)
+Exec="$LAUNCHER_PATH" %u
 Icon=$TD_ICON_PATH
 MimeType=application/x-touchdesigner;
 NoDisplay=true
-Categories=Graphics;Development;
+Categories=Graphics;
 DESKTOP
 
     register_toe_mimetype
@@ -1865,6 +2147,207 @@ DESKTOP
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # CLEANUP & UNINSTALL
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+discover_touchdesigner_install_roots() {
+    local drive_c="$WINE_PREFIX/drive_c"
+
+    [ -d "$drive_c" ] || return 0
+
+    find "$drive_c" -type f -iname 'TouchDesigner.exe' 2>/dev/null | while IFS= read -r exe_path; do
+        local install_root
+
+        if [[ "$exe_path" == */bin/TouchDesigner.exe ]]; then
+            install_root="$(dirname "$(dirname "$exe_path")")"
+        else
+            install_root="$(dirname "$exe_path")"
+        fi
+
+        [ -d "$install_root" ] && printf "%s\n" "$install_root"
+    done | sort -u
+}
+
+detect_touchdesigner_version() {
+    local install_root="$1"
+    local td_exe="$install_root/bin/TouchDesigner.exe"
+    local version=""
+
+    [ -f "$td_exe" ] || return 0
+    command -v strings >/dev/null 2>&1 || return 0
+
+    version=$(strings "$td_exe" 2>/dev/null | sed -nE 's/.*TouchDesigner[[:space:]]+((20[0-9]{2}\.[0-9]+)).*/\1/p' | head -n 1)
+
+    if [ -z "$version" ]; then
+        version=$(strings "$td_exe" 2>/dev/null | sed -nE 's/.*((20[0-9]{2}\.[0-9]+)).*/\1/p' | head -n 1)
+    fi
+
+    [ -n "$version" ] && printf "%s\n" "$version"
+}
+
+uninstall_selected_touchdesigner_versions() {
+    local -a selected_roots=("$@")
+    local removed_count=0
+    local root
+
+    if [ "${#selected_roots[@]}" -eq 0 ]; then
+        print_warning "No versions selected"
+        return 0
+    fi
+
+    for root in "${selected_roots[@]}"; do
+        local pretty_root="${root#$WINE_PREFIX/drive_c/}"
+        [ "$pretty_root" = "$root" ] && pretty_root="$root"
+
+        if [ -d "$root" ]; then
+            print_info "Removing: $pretty_root"
+            safe_rm_rf "$root"
+            removed_count=$((removed_count + 1))
+        else
+            print_warning "Already missing: $pretty_root"
+        fi
+    done
+
+    if [ "$removed_count" -gt 0 ]; then
+        print_success "Removed $removed_count TouchDesigner version(s)"
+    else
+        print_info "No versions were removed"
+    fi
+}
+
+uninstall_touchdesigner_menu() {
+    ensure_interactive_input
+
+    if [ "$NON_INTERACTIVE" = true ]; then
+        uninstall_touchdesigner
+        return
+    fi
+
+    local -a install_roots=()
+    mapfile -t install_roots < <(discover_touchdesigner_install_roots)
+
+    print_banner
+    printf "\n${BOLD}${PRIMARY}UNINSTALL TOUCHDESIGNER:${NC}\n\n"
+
+    if [ "${#install_roots[@]}" -eq 0 ]; then
+        print_warning "No installed TouchDesigner versions were detected in the Wine prefix"
+        printf "\n  1  Uninstall everything (prefix, runner, launcher, desktop entries)\n"
+        printf "  0  Cancel\n\n"
+        printf "Select option [0]: "
+
+        local empty_choice
+        if ! IFS= read -r empty_choice <"$INTERACTIVE_INPUT"; then
+            empty_choice="0"
+        fi
+        empty_choice=$(printf "%s" "$empty_choice" | tr -d '[:space:]')
+        empty_choice=${empty_choice:-0}
+
+        case "$empty_choice" in
+            1)
+                uninstall_touchdesigner
+                ;;
+            0)
+                print_info "Uninstall cancelled"
+                ;;
+            *)
+                print_error "Invalid option"
+                ;;
+        esac
+
+        return
+    fi
+
+    local count="${#install_roots[@]}"
+    local purge_all_option=$((count + 1))
+    local i
+
+    printf "Detected versions in Wine prefix:\n\n"
+    for i in "${!install_roots[@]}"; do
+        local root="${install_roots[$i]}"
+        local label
+        local pretty_root
+        local detected_version
+
+        pretty_root="${root#$WINE_PREFIX/drive_c/}"
+        [ "$pretty_root" = "$root" ] && pretty_root="$root"
+
+        detected_version="$(detect_touchdesigner_version "$root")"
+        if [ -n "$detected_version" ]; then
+            label="TouchDesigner $detected_version"
+        else
+            label="TouchDesigner ($(basename "$root"))"
+        fi
+
+        printf "  %d  %s\n" "$((i + 1))" "$label"
+        printf "${ACCENT}      %s${NC}\n" "$pretty_root"
+    done
+
+    printf "\n  %d  Uninstall EVERYTHING (prefix, runner, launcher, desktop entries)\n" "$purge_all_option"
+    printf "\n"
+    printf "  0  Cancel\n\n"
+    printf "Select one or multiple versions (e.g. 1,3) [0]: "
+
+    local selection_raw
+    if ! IFS= read -r selection_raw <"$INTERACTIVE_INPUT"; then
+        selection_raw="0"
+    fi
+    selection_raw=${selection_raw:-0}
+
+    local selection
+    selection=$(printf "%s" "$selection_raw" | tr ',' ' ' | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+
+    if [ "$selection" = "0" ]; then
+        print_info "Uninstall cancelled"
+        return
+    fi
+
+    if [ "$selection" = "$purge_all_option" ]; then
+        uninstall_touchdesigner
+        return
+    fi
+
+    local token
+    local -a selected_roots=()
+
+    for token in $selection; do
+        if ! [[ "$token" =~ ^[0-9]+$ ]]; then
+            print_error "Invalid selection: $token"
+            return
+        fi
+
+        if [ "$token" -lt 1 ] || [ "$token" -gt "$count" ]; then
+            print_error "Selection out of range: $token"
+            return
+        fi
+
+        local idx=$((token - 1))
+        local candidate_root="${install_roots[$idx]}"
+        local already_selected=false
+        local existing_root
+
+        for existing_root in "${selected_roots[@]}"; do
+            if [ "$existing_root" = "$candidate_root" ]; then
+                already_selected=true
+                break
+            fi
+        done
+
+        if [ "$already_selected" = false ]; then
+            selected_roots+=("$candidate_root")
+        fi
+    done
+
+    if [ "${#selected_roots[@]}" -eq 0 ]; then
+        print_warning "No versions selected"
+        return
+    fi
+
+    prompt_yes_no "Remove ${#selected_roots[@]} selected version(s)?" "Y"
+    if [ "$PROMPT_YES_NO_RESULT" != "Y" ]; then
+        print_info "Uninstall cancelled"
+        return
+    fi
+
+    uninstall_selected_touchdesigner_versions "${selected_roots[@]}"
+}
 
 uninstall_touchdesigner() {
     ensure_interactive_input
@@ -1909,6 +2392,10 @@ uninstall_touchdesigner() {
         rm -f "$DESKTOP_DIR/TouchDesigner.desktop"
         print_success "Desktop shortcut removed"
     fi
+    # Remove versioned desktop shortcuts
+    for _vshortcut in "$DESKTOP_DIR"/TouchDesigner-*.desktop; do
+        [ -f "$_vshortcut" ] && rm -f "$_vshortcut"
+    done
 
     print_info "Removing file association..."
     if [ -f "$APPLICATIONS_DIR/touchdesigner.desktop" ]; then
@@ -1919,6 +2406,10 @@ uninstall_touchdesigner() {
         rm -f "$APPLICATIONS_DIR/touchdesigner-file.desktop"
         print_success "File association removed"
     fi
+    # Remove versioned application shortcuts
+    for _vapp in "$APPLICATIONS_DIR"/touchdesigner-[0-9]*.desktop; do
+        [ -f "$_vapp" ] && rm -f "$_vapp"
+    done
 
     local mime_dir="$HOME/.local/share/mime/packages"
     if [ -f "$mime_dir/touchdesigner.xml" ]; then
@@ -1970,21 +2461,21 @@ main() {
 
             # Step 2: Soda Wine runner
             if [ ! -f "$RUNNER_DIR/bin/wine64" ]; then
-                print_info "Step 2/6: Downloading Soda Wine runner..."
+                print_info "Step 2/6: Setting up compatibility runtime..."
                 download_soda_runner
             else
-                print_success "Step 2/6: Soda Wine runner already present, skipping..."
+                print_success "Step 2/6: Compatibility runtime ready"
             fi
             [ "$FAST_MODE" != true ] && sleep 0.3
 
             # Step 3: Wine prefix
-            print_info "Step 3/6: Ensuring Wine prefix is healthy..."
+            print_info "Setting up compatibility environment..."
             setup_wine_prefix
             [ "$FAST_MODE" != true ] && sleep 0.3
 
             # Step 4: Windows dependencies
             if [ -d "$WINE_PREFIX/drive_c" ]; then
-                print_info "Step 4/6: Installing Windows dependencies..."
+                print_info "Step 4/6: Installing compatibility libraries..."
                 download_winetricks
                 install_windows_deps
                 install_dxvk
@@ -2000,7 +2491,7 @@ main() {
 
             # Step 6: Install TouchDesigner
             if [ -d "$WINE_PREFIX/drive_c" ]; then
-                print_info "Step 6/6: Running TouchDesigner installer..."
+                print_info "Step 6/6: Installing TouchDesigner..."
                 install_touchdesigner
             else
                 print_warning "Step 6/6: Skipped (requires graphical session)"
@@ -2026,6 +2517,12 @@ main() {
                 fi
                 create_desktop_shortcut
                 create_applications_shortcut
+                create_versioned_shortcuts
+
+                starter_project_path="$(install_starter_project 2>/dev/null || true)"
+                if [ -n "$starter_project_path" ]; then
+                    create_starter_shortcuts "$starter_project_path"
+                fi
 
                 if [ "$NON_INTERACTIVE" = true ]; then
                     print_info "Non-interactive mode: ASSOC_FILES=$ASSOC_FILES"
@@ -2040,14 +2537,11 @@ main() {
 
             if install_optional_font_fix; then
                 distribute_optional_font_fix
-                print_info "Font fix available:"
+                print_font_fix_instructions
+            fi
 
-                while IFS= read -r fix_location; do
-                    [ -n "$fix_location" ] || continue
-                    print_info "$fix_location"
-                done <<< "$OPTIONAL_FONT_FIX_LOCATIONS"
-
-                print_info "Import it in your TouchDesigner project if UI text is missing"
+            if [ -f "$TD_BASE_DIR/starter-projects/TouchDesigner-Starter.toe" ]; then
+                print_starter_project_instructions
             fi
 
             printf "\n${DIM}────────────────────────────────────────────${NC}\n"
@@ -2060,10 +2554,9 @@ main() {
             fi
             printf "\n"
             if find_touchdesigner_exe >/dev/null; then
-                print_success "Launch TouchDesigner from the shortcut, or run this command in your terminal:"
-                print_info "$LAUNCHER_PATH"
+                print_success "Launch TouchDesigner from the shortcut."
             else
-                print_info "When you have a graphical session, re-run the installer and choose Full install."
+                print_info "When you have a graphical session, re-run the installer and choose Install."
             fi
             if [ -n "$DEBUG_LOG_FILE" ]; then
                 print_info "Debug log saved to: $DEBUG_LOG_FILE"
@@ -2073,7 +2566,7 @@ main() {
             printf "${DIM}────────────────────────────────────────────${NC}\n\n"
             ;;
         2)
-            uninstall_touchdesigner
+            uninstall_touchdesigner_menu
             ;;
         0)
             print_info "Exiting..."
