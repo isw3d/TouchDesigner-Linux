@@ -22,18 +22,18 @@ This is an automated installer to run TouchDesigner on Linux.
 ### Install
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/iswad-lab/TouchDesigner-Linux/main/install.sh | bash
 ```
 
 To run in debug mode (verbose logs for bug reports):
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/install.sh | DEBUG=true bash
+curl -sSL https://raw.githubusercontent.com/iswad-lab/TouchDesigner-Linux/main/install.sh | DEBUG=true bash
 ```
 
 The script is idempotent, it is safe to run multiple times. It skips already-installed components and can be used for updates or repairs.
 
-**What it does:** detects your distro, installs system packages, downloads a Soda Wine runner, sets up a Wine prefix, installs Windows dependencies via Winetricks, lets you pick a TD version, and creates a launcher with optional desktop integration.
+**What it does:** detects your distro, installs system packages, sets up a compatibility runtime and environment, lets you pick a TD version, supports side-by-side multi-version installs, and creates launcher shortcuts with optional desktop integration.
 
 The installer also adds a ready-to-use starter project: `TouchDesigner Starter`, which already includes the font fix setup.
 
@@ -59,7 +59,7 @@ The installer also adds a ready-to-use starter project: `TouchDesigner Starter`,
 
 ### Uninstall
 
-Run the installer again and choose **Uninstall**. This removes the runner, prefix, launcher, and all desktop entries created by the script.
+Run the installer again and choose **Uninstall**. You can remove one selected TouchDesigner version, multiple versions, or everything (runtime, environment, launcher, and desktop entries).
 
 ---
 
@@ -72,6 +72,7 @@ Run the installer again and choose **Uninstall**. This removes the runner, prefi
 | `~/.local/share/touchdesigner-linux/wine_ui_fixes.tox` | Font fix file |
 | `~/.local/share/touchdesigner-linux/starter-projects/TouchDesigner-Starter.toe` | Ready-to-use starter project |
 | `~/.local/share/applications/touchdesigner.desktop` | App menu entry |
+| `~/.local/share/applications/touchdesigner-starter.desktop` | Starter project menu entry (includes font fix) |
 
 ---
 
@@ -81,7 +82,7 @@ Run the installer again and choose **Uninstall**. This removes the runner, prefi
 | --- | --- |
 | No display / GUI fails | Run from a graphical session with `DISPLAY` or `WAYLAND_DISPLAY` set |
 | Version list fetch fails | Script falls back to a curated list automatically |
-| Long dependency phase | The Windows deps step is slow and quiet, just wait |
+| Long dependency phase | The compatibility libraries step can be slow and quiet, just wait |
 | Ubuntu/Debian `:i386` dependency errors (`Breaks`, version mismatch) | Usually caused by third-party repo skew between amd64 and i386 packages. The installer does not force downgrades. Align package versions in apt sources, then rerun the script. |
 | TD installer fails on specific `.dll` files (for example ZED, Spinnaker, TensorRT/CUDA) | In the TouchDesigner installer, choose `Custom`/`Minimal` install and uncheck optional hardware SDK components you do not need. |
 | Duplicate menu entry | Remove stale `.desktop` files in `~/.local/share/applications` and run `update-desktop-database` |
@@ -189,13 +190,11 @@ Some UI elements may appear blank due to font rendering issues.
 ### Solution
 
 1. Add `wine_ui_fixes.tox` to your project.
-	- [Download `wine_ui_fixes.tox` directly](https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/wine_ui_fixes.tox)
+	- [Download `wine_ui_fixes.tox` directly](https://raw.githubusercontent.com/iswad-lab/TouchDesigner-Linux/main/Assets/wine_ui_fixes.tox)
 	- Original post: [c0deous on Derivative](https://derivative.ca/community-post/asset/minor-ui-fixes-touchdesigner-wine/73421)
 2. Click **Fix Now**.
 
 Fonts will display correctly as long as the `.tox` file is present in the project.
-
-If you prefer a preconfigured starting point, open **TouchDesigner Starter** instead of creating a project from scratch.
 
 ---
 
