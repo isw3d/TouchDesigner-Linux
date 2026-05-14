@@ -83,6 +83,7 @@ Run the installer again and choose **Uninstall**. You can remove one selected To
 | No display / GUI fails | Run from a graphical session with `DISPLAY` or `WAYLAND_DISPLAY` set |
 | Version list fetch fails | Script falls back to a curated list automatically |
 | Long dependency phase | The compatibility libraries step can be slow and quiet, just wait |
+| Textport warning: `Error Loading Default Mono Font ... Substituted with Verdana` | Non-blocking fallback. UI and projects still work. Apply `wine_ui_fixes.tox` (or use `TouchDesigner (Font Fixes)` starter), then restart TouchDesigner if needed. |
 | Ubuntu/Debian `:i386` dependency errors (`Breaks`, version mismatch) | Usually caused by third-party repo skew between amd64 and i386 packages. The installer does not force downgrades. Align package versions in apt sources, then rerun the script. |
 | TD installer fails on specific `.dll` files (for example ZED, Spinnaker, TensorRT/CUDA) | In the TouchDesigner installer, choose `Custom`/`Minimal` install and uncheck optional hardware SDK components you do not need. |
 | Duplicate menu entry | Remove stale `.desktop` files in `~/.local/share/applications` and run `update-desktop-database` |
@@ -195,6 +196,8 @@ Some UI elements may appear blank due to font rendering issues.
 2. Click **Fix Now**.
 
 Fonts will display correctly as long as the `.tox` file is present in the project.
+
+If Textport still shows `Error Loading Default Mono Font ... Substituted with Verdana`, this is usually harmless on Linux/Wine and can be ignored once the UI looks correct.
 
 ---
 
