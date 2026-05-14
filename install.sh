@@ -190,9 +190,9 @@ print_font_fix_instructions() {
 
 print_starter_project_instructions() {
     printf "\n${DIM}────────────────────────────────────────────${NC}\n"
-    printf "${BOLD}${PRIMARY}TouchDesigner Starter${NC}\n"
+    printf "${BOLD}${PRIMARY}TouchDesigner (Font Fixes)${NC}\n"
     printf "${DIM}A preconfigured project is available for a quick start.${NC}\n"
-    printf "${PRIMARY}•${NC} Open ${BOLD}TouchDesigner Starter${NC} to start from a ready-made project\n"
+    printf "${PRIMARY}•${NC} Open ${BOLD}TouchDesigner (Font Fixes)${NC} to start from a ready-made project\n"
     printf "${PRIMARY}•${NC} It already includes the font fix setup\n"
     printf "${PRIMARY}•${NC} If you like it, set it as TouchDesigner's Startup File inside the app\n"
     printf "${DIM}────────────────────────────────────────────${NC}\n"
@@ -1955,7 +1955,7 @@ create_desktop_shortcut() {
 Version=1.0
 Type=Application
 Name=TouchDesigner
-Comment=Open latest installed version (add wine_ui_fixes.tox for fonts)
+Comment=Open latest installed version (add wine_ui_fixes.tox yourself)
 Exec="$LAUNCHER_PATH"
 Icon=$TD_ICON_PATH
 Terminal=false
@@ -1989,7 +1989,7 @@ create_applications_shortcut() {
 Version=1.0
 Type=Application
 Name=TouchDesigner
-Comment=Open latest installed version (add wine_ui_fixes.tox for fonts)
+Comment=Open latest installed version (add wine_ui_fixes.tox yourself)
 Exec="$LAUNCHER_PATH"
 Icon=$TD_ICON_PATH
 Terminal=false
@@ -2034,7 +2034,7 @@ create_starter_shortcuts() {
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=TouchDesigner Starter
+Name=TouchDesigner (Font Fixes)
 Comment=Open the starter project with font fixes
 Exec="$LAUNCHER_PATH" "$starter_project"
 Icon=$TD_ICON_PATH
@@ -2047,7 +2047,7 @@ DESKTOP
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=TouchDesigner Starter
+Name=TouchDesigner (Font Fixes)
 Comment=Open the starter project with font fixes
 Exec="$LAUNCHER_PATH" "$starter_project"
 Icon=$TD_ICON_PATH
@@ -2512,7 +2512,7 @@ main() {
                 if [ "$NON_INTERACTIVE" = true ]; then
                     print_info "Non-interactive mode: CREATE_SHORTCUT=$CREATE_SHORTCUT"
                 else
-                    prompt_yes_no "Create desktop shortcut?" "N"
+                    prompt_yes_no "Create desktop shortcut?" "Y"
                     CREATE_SHORTCUT="$PROMPT_YES_NO_RESULT"
                 fi
                 create_desktop_shortcut
@@ -2527,7 +2527,7 @@ main() {
                 if [ "$NON_INTERACTIVE" = true ]; then
                     print_info "Non-interactive mode: ASSOC_FILES=$ASSOC_FILES"
                 else
-                    prompt_yes_no "Associate .toe files with TouchDesigner?" "N"
+                    prompt_yes_no "Associate .toe files with TouchDesigner?" "Y"
                     ASSOC_FILES="$PROMPT_YES_NO_RESULT"
                 fi
                 associate_toe_files
