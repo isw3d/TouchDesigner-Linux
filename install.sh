@@ -81,7 +81,7 @@ SODA_URL="https://github.com/bottlesdevs/wine/releases/download/soda-9.0-1/soda-
 DXVK_VERSION="2.4"
 DXVK_URL="https://github.com/doitsujin/dxvk/releases/download/v${DXVK_VERSION}/dxvk-${DXVK_VERSION}.tar.gz"
 SCRIPT_VERSION="v1.1.0"
-REPO_ASSETS_BASE_URL="${REPO_ASSETS_BASE_URL:-https://raw.githubusercontent.com/isw3d/TouchDesigner-Linux/main/Assets}"
+REPO_ASSETS_BASE_URL="${REPO_ASSETS_BASE_URL:-https://raw.githubusercontent.com/iswad-lab/TouchDesigner-Linux/main/Assets}"
 SODA_SHA256="${SODA_SHA256:-}"
 DXVK_SHA256="${DXVK_SHA256:-}"
 
@@ -2028,7 +2028,32 @@ install_starter_project() {
 
     mkdir -p "$dest_dir"
 
-    for src in "$SCRIPT_DIR/Assets/TouchDesigner_Font_Fixes.toe"; do
+    if curl -fsSL --max-time 20 "$REPO_ASSETS_BASE_URL/TouchDesigner_Font_Fixes.toe" -o "$dest" 2>/dev/null; then
+        echo "$dest"
+        return 0
+    fi
+
+    if wget -q -O "$dest" "$REPO_ASSETS_BASE_URL/TouchDesigner_Font_Fixes.toe" 2>/dev/null; then
+        echo "$dest"
+        return 0
+    fi
+
+    if curl -fsSL --max-time 20 "$REPO_ASSETS_BASE_URL/TouchDesigner-Starter.toe" -o "$dest" 2>/dev/null; then
+        echo "$dest"
+        return 0
+    fi
+
+    if wget -q -O "$dest" "$REPO_ASSETS_BASE_URL/TouchDesigner-Starter.toe" 2>/dev/null; then
+        echo "$dest"
+        return 0
+    fi
+
+    for src in \
+        "$SCRIPT_DIR/TouchDesigner_Font_Fixes.toe" \
+        "$SCRIPT_DIR/Assets/TouchDesigner_Font_Fixes.toe" \
+        "$SCRIPT_DIR/TouchDesigner-Starter.toe" \
+        "$SCRIPT_DIR/Assets/TouchDesigner-Starter.toe"
+    do
         if [ -f "$src" ]; then
             cp -f "$src" "$dest"
             echo "$dest"
@@ -2540,6 +2565,8 @@ main() {
                 starter_project_path="$(install_starter_project 2>/dev/null || true)"
                 if [ -n "$starter_project_path" ]; then
                     create_starter_shortcuts "$starter_project_path"
+                else
+                    print_warning "Starter project not found (local assets/download), skipping starter shortcut"
                 fi
 
                 if [ "$NON_INTERACTIVE" = true ]; then
