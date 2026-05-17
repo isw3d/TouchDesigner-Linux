@@ -2,6 +2,12 @@
 
 This is an automated installer to run TouchDesigner on Linux.
 
+## Support the project
+
+If this project helps you, you can support maintenance and improvements via GitHub Sponsors:
+
+- https://github.com/sponsors/iswad-lab
+
 ![Screenshot](Screenshots/0.png)
 
 ### Choose your installation method:
